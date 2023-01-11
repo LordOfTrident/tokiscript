@@ -1,0 +1,62 @@
+#ifndef TOKEN_H__HEADER_GUARD__
+#define TOKEN_H__HEADER_GUARD__
+
+#include <assert.h> /* static_assert */
+#include <stdlib.h> /* free */
+
+#include "common.h"
+
+typedef enum {
+	TOKEN_TYPE_EOF = 0,
+
+	TOKEN_TYPE_ID,
+	TOKEN_TYPE_STR,
+	TOKEN_TYPE_DEC,
+
+	TOKEN_TYPE_TRUE,
+	TOKEN_TYPE_FALSE,
+	TOKEN_TYPE_LET,
+
+	TOKEN_TYPE_ADD,
+	TOKEN_TYPE_SUB,
+	TOKEN_TYPE_MUL,
+	TOKEN_TYPE_DIV,
+	TOKEN_TYPE_POW,
+
+	TOKEN_TYPE_ASSIGN,
+	TOKEN_TYPE_EQUALS,
+	TOKEN_TYPE_NOT_EQUALS,
+	TOKEN_TYPE_GREATER,
+	TOKEN_TYPE_GREATER_EQU,
+	TOKEN_TYPE_LESS,
+	TOKEN_TYPE_LESS_EQU,
+
+	TOKEN_TYPE_LPAREN,
+	TOKEN_TYPE_RPAREN,
+	TOKEN_TYPE_COMMA,
+
+	TOKEN_TYPE_ERR,
+
+	TOKEN_TYPE_COUNT,
+} token_type_t;
+
+const char *token_type_to_cstr(token_type_t p_type);
+
+typedef struct {
+	const char *path;
+	int         row, col;
+} where_t;
+
+typedef struct {
+	char        *data;
+	token_type_t type;
+	where_t      where;
+} token_t;
+
+void token_free(token_t *p_tok);
+
+token_t token_new(char *p_data, token_type_t p_type, where_t p_where);
+token_t token_new_eof(where_t p_where);
+token_t token_new_err(char *p_msg, where_t p_where);
+
+#endif

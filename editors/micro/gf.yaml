@@ -1,0 +1,25 @@
+filetype: goofscript
+detect:
+    filename: "\\.(gf|goof)$"
+
+rules:
+    - statement: "\\b(let|if|then|end|else|elif)\\b"
+    - constant.string:
+        start: "\""
+        end:   "\""
+        skip:  "\\\\."
+        rules:
+            - constant.specialChar: "\\\\[\"0abefnrtv\\\\]"
+
+    - constant.number: "\\b([0-9\\.]+)\\b"
+
+    - constant.bool: "(\\b(true|false)\\b)"
+
+    - symbol.operator: "[=\\+\\-\\*/^><\\(\\)]"
+    - symbol.operator: "\\b(println|print|len)\\b"
+
+    - comment:
+        start: "#"
+        end:   "$"
+        rules:
+            - todo: "(TODO|XXX|FIXME|READABLE):?"
