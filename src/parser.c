@@ -36,7 +36,7 @@ static expr_t *parse_expr_call(parser_t *p_p) {
 
 	parser_advance(p_p);
 	if (p_p->tok.type != TOKEN_TYPE_LPAREN)
-		fatal(p_p->tok.where, "Expected '(', got '%v'", token_type_to_cstr(p_p->tok.type));
+		fatal(p_p->tok.where, "Expected '(', got '%s'", token_type_to_cstr(p_p->tok.type));
 
 	parser_skip(p_p);
 	while (p_p->tok.type != TOKEN_TYPE_RPAREN) {
@@ -47,7 +47,7 @@ static expr_t *parse_expr_call(parser_t *p_p) {
 		if (p_p->tok.type == TOKEN_TYPE_RPAREN)
 			break;
 		else if (p_p->tok.type != TOKEN_TYPE_COMMA)
-			fatal(p_p->tok.where, "Expected ',', got '%v'");
+			fatal(p_p->tok.where, "Expected ',', got '%s'", token_type_to_cstr(p_p->tok.type));
 
 		parser_skip(p_p);
 	}
