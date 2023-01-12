@@ -1,6 +1,6 @@
 BIN     = ./bin
 OUT     = $(BIN)/app
-INSTALL = /usr/bin/goofscript
+INSTALL = /usr/bin/nopscript
 
 SRC  = $(wildcard src/*.c)
 DEPS = $(wildcard src/*.h)

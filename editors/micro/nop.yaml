@@ -1,6 +1,6 @@
-filetype: goofscript
+filetype: nopscript
 detect:
-    filename: "\\.(gf|goof)$"
+    filename: "\\.nop$"
 
 rules:
     - statement: "\\b(let|if|then|end|else|elif)\\b"
