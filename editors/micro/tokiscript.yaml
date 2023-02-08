@@ -1,9 +1,9 @@
-filetype: nopscript
+filetype: tokiscript
 detect:
-    filename: "\\.nop$"
+    filename: "\\.toki$"
 
 rules:
-    - statement: "\\b(let|if|then|end|else|elif)\\b"
+    - statement: "\\b(let|if|then|end|else|elif|fun)\\b"
     - constant.string:
         start: "\""
         end:   "\""

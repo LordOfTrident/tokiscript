@@ -1,6 +1,6 @@
 BIN     = ./bin
 OUT     = $(BIN)/app
-INSTALL = /usr/bin/nopscript
+INSTALL = /usr/bin/tokiscript
 
 SRC  = $(wildcard src/*.c)
 DEPS = $(wildcard src/*.h)
