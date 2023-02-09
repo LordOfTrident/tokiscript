@@ -1,33 +1,33 @@
 #include "common.h"
 
-char *strcpy_to_heap(const char *p_str) {
-	char  *str = (char*)malloc(strlen(p_str) + 1);
-	if (str == NULL)
+char *strcpy_to_heap(const char *str) {
+	char  *copy = (char*)malloc(strlen(str) + 1);
+	if (copy == NULL)
 		UNREACHABLE("malloc() fail");
 
-	strcpy(str, p_str);
+	strcpy(copy, str);
 
-	return str;
+	return copy;
 }
 
-char *shift(int *p_argc, char ***p_argv) {
-	char *arg = **p_argv;
+char *shift(int *argc, char ***argv) {
+	char *arg = **argv;
 
-	-- (*p_argc);
-	++ (*p_argv);
+	-- (*argc);
+	++ (*argv);
 
 	return arg;
 }
 
 /* None of the printf formats are ideal, because they either
    leave trailing zeros or use scientific format */
-void double_to_str(double p_num, char *p_buf, size_t p_size) {
-	snprintf(p_buf, p_size, "%f", p_num);
+void double_to_str(double num, char *buf, size_t size) {
+	snprintf(buf, size, "%f", num);
 
 	bool   found = false;
 	size_t i;
-	for (i = 0; p_buf[i] != '\0'; ++ i) {
-		if (p_buf[i] == '.' && !found)
+	for (i = 0; buf[i] != '\0'; ++ i) {
+		if (buf[i] == '.' && !found)
 			found = true;
 	}
 
@@ -36,13 +36,13 @@ void double_to_str(double p_num, char *p_buf, size_t p_size) {
 
 
 	for (-- i;; -- i) {
-		if (p_buf[i] != '0') {
-			if (p_buf[i] == '.')
-				p_buf[i] = '\0';
+		if (buf[i] != '0') {
+			if (buf[i] == '.')
+				buf[i] = '\0';
 
 			break;
 		}
 
-		p_buf[i] = '\0';
+		buf[i] = '\0';
 	}
 }

@@ -73,9 +73,9 @@ struct stmt {
 static_assert(STMT_TYPE_COUNT == 1); /* Add new statements to union */
 
 expr_t *expr_new(void);
-void    expr_free(expr_t *p_expr);
+void    expr_free(expr_t *expr);
 
 stmt_t *stmt_new(void);
-void    stmt_free(stmt_t *p_stmt);
+void    stmt_free(stmt_t *stmt);
 
 #endif

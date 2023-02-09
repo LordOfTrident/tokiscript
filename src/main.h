@@ -1,0 +1,24 @@
+#ifndef MAIN_H_HEADER_GUARD
+#define MAIN_H_HEADER_GUARD
+#include <stdio.h>  /* printf, stderr, fprintf */
+#include <stdlib.h> /* exit, EXIT_FAILURE, EXIT_SUCCESS */
+#include <stdarg.h> /* va_list, va_start, va_end, vsnprintf */
+
+#include <cargs/cargs.h>
+#include <colorer/colorer.h>
+
+#include "common.h"
+#include "parser.h"
+#include "eval.h"
+
+#define APP_NAME "tokiscript"
+#define USAGE    "PATH [OPTIONS]"
+
+#define VERSION_MAJOR 1
+#define VERSION_MINOR 0
+#define VERSION_PATCH 0
+
+void usage(void);
+void version(void);
+
+#endif

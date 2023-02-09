@@ -1,9 +1,9 @@
 #include "token.h"
 
-void token_free(token_t *p_tok) {
-	if (p_tok->data != NULL) {
-		free(p_tok->data);
-		p_tok->data = NULL;
+void token_free(token_t *tok) {
+	if (tok->data != NULL) {
+		free(tok->data);
+		tok->data = NULL;
 	}
 }
 
@@ -41,25 +41,25 @@ static const char *token_type_to_cstr_map[] = {
 
 static_assert(TOKEN_TYPE_COUNT == 23); /* Add the new token type to the map */
 
-const char *token_type_to_cstr(token_type_t p_type) {
-	if (p_type >= TOKEN_TYPE_COUNT)
+const char *token_type_to_cstr(token_type_t type) {
+	if (type >= TOKEN_TYPE_COUNT)
 		UNREACHABLE("Invalid token type");
 
-	return token_type_to_cstr_map[p_type];
+	return token_type_to_cstr_map[type];
 }
 
-token_t token_new(char *p_data, token_type_t p_type, where_t p_where) {
+token_t token_new(char *data, token_type_t type, where_t where) {
 	return (token_t){
-		.data  = p_data,
-		.type  = p_type,
-		.where = p_where,
+		.data  = data,
+		.type  = type,
+		.where = where,
 	};
 }
 
-token_t token_new_eof(where_t p_where) {
-	return token_new(NULL, TOKEN_TYPE_EOF, p_where);
+token_t token_new_eof(where_t where) {
+	return token_new(NULL, TOKEN_TYPE_EOF, where);
 }
 
-token_t token_new_err(char *p_msg, where_t p_where) {
-	return token_new(p_msg, TOKEN_TYPE_ERR, p_where);
+token_t token_new_err(char *msg, where_t where) {
+	return token_new(msg, TOKEN_TYPE_ERR, where);
 }

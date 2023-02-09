@@ -18,7 +18,7 @@ typedef enum {
 	VALUE_TYPE_COUNT,
 } value_type_t;
 
-const char *value_type_to_cstr(value_type_t p_type);
+const char *value_type_to_cstr(value_type_t type);
 
 typedef struct {
 	value_type_t type;
@@ -34,13 +34,13 @@ static_assert(VALUE_TYPE_COUNT == 4); /* Add new values to union */
 
 value_t value_nil(void);
 
-typedef value_t (*builtin_func_t)(expr_t *p_expr);
+typedef value_t (*builtin_func_t)(expr_t *expr);
 
 typedef struct {
 	const char    *name;
 	builtin_func_t func;
 } builtin_t;
 
-void eval(stmt_t *p_program);
+void eval(stmt_t *program);
 
 #endif

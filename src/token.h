@@ -40,7 +40,7 @@ typedef enum {
 	TOKEN_TYPE_COUNT,
 } token_type_t;
 
-const char *token_type_to_cstr(token_type_t p_type);
+const char *token_type_to_cstr(token_type_t type);
 
 typedef struct {
 	const char *path;
@@ -53,10 +53,10 @@ typedef struct {
 	where_t      where;
 } token_t;
 
-void token_free(token_t *p_tok);
+void token_free(token_t *tok);
 
-token_t token_new(char *p_data, token_type_t p_type, where_t p_where);
-token_t token_new_eof(where_t p_where);
-token_t token_new_err(char *p_msg, where_t p_where);
+token_t token_new(char *data, token_type_t type, where_t where);
+token_t token_new_eof(where_t where);
+token_t token_new_err(char *msg, where_t where);
 
 #endif

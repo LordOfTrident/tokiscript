@@ -8,7 +8,7 @@ OBJ  = $(addsuffix .o,$(subst src/,$(BIN)/,$(basename $(SRC))))
 
 CC     = gcc
 CSTD   = c11
-CFLAGS = -O2 -std=$(CSTD) -Wall -Wextra -Werror -pedantic -Wno-deprecated-declarations
+CFLAGS = -O2 -std=$(CSTD) -Wall -Wextra -Werror -pedantic -Wno-deprecated-declarations -I./lib
 CLIBS  = -lm
 
 shared: $(BIN) $(OBJ) $(SRC)

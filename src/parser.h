@@ -10,13 +10,13 @@
 #include "token.h"
 #include "node.h"
 
-void fatal(where_t p_where, const char *p_fmt, ...);
+void fatal(where_t where, const char *fmt, ...);
 
 typedef struct {
 	lexer_t l;
 	token_t tok;
 } parser_t;
 
-stmt_t *parse(const char *p_path);
+stmt_t *parse(const char *path, int *status);
 
 #endif

@@ -22,9 +22,9 @@ typedef struct {
 	where_t where;
 } lexer_t;
 
-int  lexer_begin(lexer_t *p_l, const char *p_path);
-void lexer_end(lexer_t *p_l);
+int  lexer_begin(lexer_t *l, const char *path);
+void lexer_end(lexer_t *l);
 
-token_t lexer_next(lexer_t *p_l);
+token_t lexer_next(lexer_t *l);
 
 #endif
