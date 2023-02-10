@@ -1,5 +1,5 @@
-#ifndef LEXER_H__HEADER_GUARD__
-#define LEXER_H__HEADER_GUARD__
+#ifndef LEXER_H_HEADER_GUARD
+#define LEXER_H_HEADER_GUARD
 
 #include <stdio.h>   /* FILE, fopen, fclose, fgetc, EOF */
 #include <stdlib.h>  /* malloc, free */

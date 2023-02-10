@@ -67,13 +67,15 @@ int main(int argc, const char **argv) {
 	if (stripped.c < 1)
 		arg_fatal("No input file");
 
+	env_t e;
 	FOREACH_IN_ARGS(stripped, path, {
 		int     status;
 		stmt_t *program = parse(path, &status);
 		if (status != 0)
 			arg_fatal("Could not open file '%s'", path);
 
-		eval(program);
+		env_init(&e);
+		eval(&e, program);
 		stmt_free(program);
 	});
 

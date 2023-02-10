@@ -15,25 +15,24 @@ void expr_free(expr_t *expr) {
 		return;
 
 	switch (expr->type) {
-	case EXPR_TYPE_STR: free(expr->as.str); break;
+	case EXPR_TYPE_VALUE: value_free(&expr->as.val); break;
+	case EXPR_TYPE_ID:    free(expr->as.id.name);    break;
 	case EXPR_TYPE_CALL:
 		for (size_t i = 0; i < expr->as.call.args_count; ++ i)
 			expr_free(expr->as.call.args[i]);
 
 		free(expr->as.call.name);
-
 		break;
 
 	case EXPR_TYPE_BIN_OP:
 		expr_free(expr->as.bin_op.left);
 		expr_free(expr->as.bin_op.right);
-
 		break;
 
 	default: break;
 	}
 
-	static_assert(EXPR_TYPE_COUNT == 5); /* Add code to free new expressions */
+	static_assert(EXPR_TYPE_COUNT == 4); /* Add code to free new expressions */
 
 	free(expr);
 }
@@ -53,7 +52,11 @@ void stmt_free(stmt_t *stmt) {
 		return;
 
 	switch (stmt->type) {
-	case STMT_TYPE_EXPR: expr_free(stmt->as.expr);
+	case STMT_TYPE_EXPR: expr_free(stmt->as.expr); break;
+	case STMT_TYPE_LET:
+		free(stmt->as.let.name);
+		expr_free(stmt->as.let.val);
+		break;
 
 	default: break;
 	}

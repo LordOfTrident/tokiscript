@@ -1,5 +1,5 @@
-#ifndef COMMON_H__HEADER_GUARD__
-#define COMMON_H__HEADER_GUARD__
+#ifndef COMMON_H_HEADER_GUARD
+#define COMMON_H_HEADER_GUARD
 
 #include <assert.h>  /* assert */
 #include <stdlib.h>  /* malloc, exit, EXIT_FAILURE */
@@ -8,6 +8,7 @@
 #include <stdbool.h> /* bool, true, false */
 
 #define UNREACHABLE(MSG) assert(0 && "Unreachable: "MSG)
+#define UNUSED(VAR)      (void)VAR
 
 char *strcpy_to_heap(const char *str);
 char *shift(int *argc, char ***argv);

@@ -1,5 +1,5 @@
-#ifndef PARSER_H__HEADER_GUARD__
-#define PARSER_H__HEADER_GUARD__
+#ifndef PARSER_H_HEADER_GUARD
+#define PARSER_H_HEADER_GUARD
 
 #include <stdarg.h> /* va_list, va_start, va_end, vsnprintf */
 #include <stdio.h>  /* stderr, fprintf */

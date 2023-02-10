@@ -28,15 +28,11 @@ static void parser_skip(parser_t *p) {
 
 static expr_t *parse_expr(parser_t *p);
 
-static expr_t *parse_expr_call(parser_t *p) {
+static expr_t *parse_expr_call(parser_t *p, token_t tok) {
 	expr_t *expr       = expr_new();
-	expr->where        = p->tok.where;
+	expr->where        = tok.where;
 	expr->type         = EXPR_TYPE_CALL;
-	expr->as.call.name = p->tok.data;
-
-	parser_advance(p);
-	if (p->tok.type != TOKEN_TYPE_LPAREN)
-		fatal(p->tok.where, "Expected '(', got '%s'", token_type_to_cstr(p->tok.type));
+	expr->as.call.name = tok.data;
 
 	parser_skip(p);
 	while (p->tok.type != TOKEN_TYPE_RPAREN) {
@@ -56,31 +52,49 @@ static expr_t *parse_expr_call(parser_t *p) {
 	return expr;
 }
 
-static expr_t *parse_expr_str(parser_t *p) {
+static expr_t *parse_expr_id(parser_t *p) {
+	token_t tok = p->tok;
+
+	parser_advance(p);
+	if (p->tok.type == TOKEN_TYPE_LPAREN)
+		return parse_expr_call(p, tok);
+
+	expr_t *expr     = expr_new();
+	expr->where      = tok.where;
+	expr->type       = EXPR_TYPE_ID;
+	expr->as.id.name = tok.data;
+	return expr;
+}
+
+static expr_t *new_value_expr(where_t where) {
 	expr_t *expr = expr_new();
-	expr->where  = p->tok.where;
-	expr->type   = EXPR_TYPE_STR;
-	expr->as.str = p->tok.data;
+	expr->where  = where;
+	expr->type   = EXPR_TYPE_VALUE;
+	return expr;
+}
+
+static expr_t *parse_expr_str(parser_t *p) {
+	expr_t *expr = new_value_expr(p->tok.where);
+	expr->as.val.type   = VALUE_TYPE_STR;
+	expr->as.val.as.str = p->tok.data;
 
 	parser_advance(p);
 	return expr;
 }
 
 static expr_t *parse_expr_num(parser_t *p) {
-	expr_t *expr = expr_new();
-	expr->where  = p->tok.where;
-	expr->type   = EXPR_TYPE_NUM;
-	expr->as.num = atof(p->tok.data);
+	expr_t *expr = new_value_expr(p->tok.where);
+	expr->as.val.type   = VALUE_TYPE_NUM;
+	expr->as.val.as.num = atof(p->tok.data);
 
 	parser_skip(p);
 	return expr;
 }
 
 static expr_t *parse_expr_bool(parser_t *p) {
-	expr_t *expr   = expr_new();
-	expr->where    = p->tok.where;
-	expr->type     = EXPR_TYPE_BOOL;
-	expr->as.bool_ = strcmp(p->tok.data, "true") == 0;
+	expr_t *expr = new_value_expr(p->tok.where);
+	expr->as.val.type     = VALUE_TYPE_BOOL;
+	expr->as.val.as.bool_ = strcmp(p->tok.data, "true") == 0;
 
 	parser_skip(p);
 	return expr;
@@ -90,7 +104,7 @@ static expr_t *parse_expr_factor(parser_t *p) {
 	switch (p->tok.type) {
 	case TOKEN_TYPE_FALSE:
 	case TOKEN_TYPE_TRUE: return parse_expr_bool(p);
-	case TOKEN_TYPE_ID:   return parse_expr_call(p);
+	case TOKEN_TYPE_ID:   return parse_expr_id(p);
 	case TOKEN_TYPE_STR:  return parse_expr_str(p);
 	case TOKEN_TYPE_DEC:  return parse_expr_num(p);
 	case TOKEN_TYPE_LPAREN: {
@@ -186,11 +200,32 @@ static expr_t *parse_expr_comp(parser_t *p) {
 	return left;
 }
 
-static expr_t *parse_expr(parser_t *p) {
-	return parse_expr_comp(p);
+static expr_t *parse_expr_assign(parser_t *p) {
+	expr_t *left = parse_expr_comp(p);
+
+	while (p->tok.type == TOKEN_TYPE_ASSIGN) {
+		token_t tok = p->tok;
+		parser_skip(p);
+
+		expr_t *node = expr_new();
+		node->type  = EXPR_TYPE_BIN_OP;
+		node->where = tok.where;
+
+		node->as.bin_op.left  = left;
+		node->as.bin_op.right = parse_expr_comp(p);
+		node->as.bin_op.type  = tok.type;
+
+		left = node;
+	}
+
+	return left;
 }
 
-static stmt_t *parse_expr_stmt(parser_t *p) {
+static expr_t *parse_expr(parser_t *p) {
+	return parse_expr_assign(p);
+}
+
+static stmt_t *parse_stmt_expr(parser_t *p) {
 	stmt_t *stmt  = stmt_new();
 	stmt->type    = STMT_TYPE_EXPR;
 	stmt->where   = p->tok.where;
@@ -199,9 +234,32 @@ static stmt_t *parse_expr_stmt(parser_t *p) {
 	return stmt;
 }
 
+static stmt_t *parse_stmt_let(parser_t *p) {
+	stmt_t *stmt = stmt_new();
+	stmt->type   = STMT_TYPE_LET;
+	stmt->where  = p->tok.where;
+
+	parser_skip(p);
+	if (p->tok.type != TOKEN_TYPE_ID)
+		fatal(p->tok.where, "Expected identifier, got '%s'", token_type_to_cstr(p->tok.type));
+
+	stmt->as.let.name = p->tok.data;
+
+	parser_advance(p);
+	if (p->tok.type != TOKEN_TYPE_ASSIGN)
+		fatal(p->tok.where, "Expected '=', got '%s'", token_type_to_cstr(p->tok.type));
+
+	parser_skip(p);
+	stmt->as.let.val = parse_expr(p);
+
+	return stmt;
+}
+
 static stmt_t *parse_stmt(parser_t *p) {
 	switch (p->tok.type) {
-	default: return parse_expr_stmt(p);
+	case TOKEN_TYPE_LET: return parse_stmt_let(p);
+
+	default: return parse_stmt_expr(p);
 	}
 
 	return NULL;

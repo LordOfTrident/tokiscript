@@ -1,5 +1,5 @@
-#ifndef TOKEN_H__HEADER_GUARD__
-#define TOKEN_H__HEADER_GUARD__
+#ifndef TOKEN_H_HEADER_GUARD
+#define TOKEN_H_HEADER_GUARD
 
 #include <assert.h> /* static_assert */
 #include <stdlib.h> /* free */

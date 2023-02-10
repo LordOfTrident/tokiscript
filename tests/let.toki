@@ -1,0 +1,7 @@
+println("let a = 5 + 5")
+let a = 5 + 5
+println("a =", a)
+
+println("a = a * 50")
+a = a * 50
+println("a =", a)
