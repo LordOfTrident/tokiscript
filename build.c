@@ -114,12 +114,7 @@ void install(void) {
 	if (!fs_exists(BIN"/"OUT))
 		LOG_FATAL("Please compile before installing");
 
-	if (fs_exists(INSTALL_DIR"/"INSTALL)) {
-		LOG_INFO("Already installed (run subcommand 'uninstall' to install again)");
-		return;
-	}
-
-	if (fs_copy(BIN"/"OUT, INSTALL_DIR"/"INSTALL) != 0)
+	if (fs_copy_file(BIN"/"OUT, INSTALL_DIR"/"INSTALL) != 0)
 		LOG_FATAL("Failed to install (could not copy to '%s', do you have permissions?)",
 		          INSTALL_DIR"/"INSTALL);
 
