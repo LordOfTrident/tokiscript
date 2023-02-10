@@ -15,6 +15,11 @@
 
 A simple dynamically typed interpreted language i decided to write in C for fun and practice.
 
+Clone this repo with
+```sh
+$ git clone --recurse-submodules https://github.com/LordOfTrident/fembed
+```
+
 ## Table of contents
 * [Quickstart](#quickstart)
 * [Editors](#editors)
@@ -23,8 +28,9 @@ A simple dynamically typed interpreted language i decided to write in C for fun 
 
 ## Quickstart
 ```sh
-$ make
-$ make install
+$ cc build.c -o build
+$ ./build
+$ ./build install
 $ tokiscript tests/hello_world.toki
 ```
 

@@ -4,3 +4,6 @@
 [submodule "lib/colorer"]
 	path = lib/colorer
 	url = https://github.com/LordOfTrident/colorer
+[submodule "cbuilder"]
+	path = cbuilder
+	url = https://github.com/LordOfTrident/cbuilder
