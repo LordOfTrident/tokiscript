@@ -1,10 +1,3 @@
-/*
- * Compile and run me with:
- *   $ cc build.c -o build
- *   $ ./build
- *
- */
-
 #include <string.h> /* strcmp, strcpy, strlen */
 #include <malloc.h> /* malloc, free */
 #include <assert.h> /* assert */

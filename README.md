@@ -24,7 +24,6 @@ $ git clone --recurse-submodules https://github.com/LordOfTrident/fembed
 * [Quickstart](#quickstart)
 * [Editors](#editors)
 * [Bugs](#bugs)
-* [Make](#make)
 
 ## Quickstart
 ```sh
@@ -34,11 +33,10 @@ $ ./build install
 $ tokiscript tests/hello_world.toki
 ```
 
+See build usage with `./build -h`
+
 ## Editors
 Syntax highlighting configs for text editors are in the [`./editors`](./editors) folder
 
 ## Bugs
 If you find any bugs, please create an issue and report them.
-
-## Make
-Run `make all` to see all the make rules.
