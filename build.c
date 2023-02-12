@@ -29,7 +29,7 @@ void create_dir_if_missing(const char *path) {
 		fs_create_dir(path);
 }
 
-char *build_file(build_cache_t *c, const char *src_name) {
+char *build_file(build_cache_t *c, const char *src_name, bool rebuild_all) {
 	char *out_name = fs_replace_ext(src_name, "o");
 	char *out      = FS_JOIN_PATH(BIN, out_name);
 	char *src      = FS_JOIN_PATH(SRC, src_name);
@@ -37,7 +37,7 @@ char *build_file(build_cache_t *c, const char *src_name) {
 
 	int64_t m_now, m_cached = build_cache_get(c, src);
 	fs_time(src, &m_now, NULL);
-	if (m_cached != m_now) {
+	if (m_cached != m_now || rebuild_all) {
 		build_cache_set(c, src, m_now);
 		CMD(cc, "-c", src, "-o", out, CARGS); /* Build the file */
 	}
@@ -56,14 +56,32 @@ void build(void) {
 	build_cache_t c;
 	build_cache_load(&c);
 
+	bool rebuild_all = false;
+
 	int status;
+	FOREACH_IN_DIR(SRC, dir, ent, {
+		if (strcmp(fs_ext(ent.name), "h") != 0)
+			continue;
+
+		char *src = FS_JOIN_PATH(SRC, ent.name);
+		int64_t m_now;
+		int64_t m_cached = build_cache_get(&c, src);
+		fs_time(src, &m_now, NULL);
+		if (m_cached != m_now) {
+			rebuild_all = true;
+			build_cache_set(&c, src, m_now);
+		}
+
+		free(src);
+	}, status);
+
 	FOREACH_IN_DIR(SRC, dir, ent, {
 		if (strcmp(fs_ext(ent.name), "c") != 0)
 			continue;
 
 		assert(o_files_count < sizeof(o_files) / sizeof(o_files[0]));
 
-		char *out = build_file(&c, ent.name);
+		char *out = build_file(&c, ent.name, rebuild_all);
 		o_files[o_files_count ++] = out;
 	}, status);
 
