@@ -15,7 +15,12 @@ typedef enum {
 
 	TOKEN_TYPE_TRUE,
 	TOKEN_TYPE_FALSE,
+
 	TOKEN_TYPE_LET,
+	TOKEN_TYPE_IF,
+	TOKEN_TYPE_END,
+	TOKEN_TYPE_ELSE,
+	TOKEN_TYPE_ELIF,
 
 	TOKEN_TYPE_ADD,
 	TOKEN_TYPE_SUB,
@@ -41,6 +46,8 @@ typedef enum {
 } token_type_t;
 
 const char *token_type_to_cstr(token_type_t type);
+
+bool token_type_is_bin_op(token_type_t type);
 
 typedef struct {
 	const char *path;

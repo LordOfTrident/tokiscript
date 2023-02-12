@@ -6,6 +6,7 @@
 #include <assert.h> /* static_assert */
 #include <math.h>   /* pow */
 
+#include "error.h"
 #include "parser.h"
 #include "value.h"
 #include "node.h"

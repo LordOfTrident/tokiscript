@@ -1,0 +1,18 @@
+let a = 5
+println("let a =", a)
+
+a = + 5
+println("a = + 5")
+println("a =", a)
+
+a = * 2
+println("a = * 2")
+println("a =", a)
+
+a = / 10
+println("a = / 10")
+println("a =", a)
+
+let b = a * 20
+println("let b = a * 20")
+println("b =", b)

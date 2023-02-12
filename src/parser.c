@@ -1,30 +1,12 @@
 #include "parser.h"
 
-void fatal(where_t where, const char *fmt, ...) {
-	char    buf[1024];
-	va_list args;
-
-	va_start(args, fmt);
-	vsnprintf(buf, sizeof(buf), fmt, args);
-	va_end(args);
-
-	color_bold(stderr);
-	fprintf(stderr, "%s:%i:%i: ", where.path, where.row, where.col);
-	color_fg(stderr, COLOR_BRED);
-	fprintf(stderr, "Error:");
-	color_reset(stderr);
-	fprintf(stderr, " %s\n", buf);
-
-	exit(EXIT_FAILURE);
-}
-
 static void parser_advance(parser_t *p) {
 	if (p->tok.type == TOKEN_TYPE_EOF)
 		return;
 
 	p->tok = lexer_next(&p->l);
 	if (p->tok.type == TOKEN_TYPE_ERR)
-		fatal(p->tok.where, "%s", p->tok.data);
+		error(p->tok.where, "%s", p->tok.data);
 }
 
 static void parser_skip(parser_t *p) {
@@ -49,7 +31,7 @@ static expr_t *parse_expr_call(parser_t *p, token_t tok) {
 		if (p->tok.type == TOKEN_TYPE_RPAREN)
 			break;
 		else if (p->tok.type != TOKEN_TYPE_COMMA)
-			fatal(p->tok.where, "Expected ',', got '%s'", token_type_to_cstr(p->tok.type));
+			error(p->tok.where, "Expected ',', got '%s'", token_type_to_cstr(p->tok.type));
 
 		parser_skip(p);
 	}
@@ -117,17 +99,40 @@ static expr_t *parse_expr_factor(parser_t *p) {
 		parser_skip(p);
 		expr_t *expr = parse_expr(p);
 		if (p->tok.type != TOKEN_TYPE_RPAREN)
-			fatal(p->tok.where, "Expected matching ')', got '%s'",
-			      token_type_to_cstr(p->tok.type));
+			error(p->tok.where, "Expected matching ')', got '%s'", token_type_to_cstr(p->tok.type));
 
 		parser_skip(p);
 		return expr;
 	}
 
-	default: fatal(p->tok.where, "Unexpected token '%s'", token_type_to_cstr(p->tok.type));
+	default: error(p->tok.where, "Unexpected token '%s'", token_type_to_cstr(p->tok.type));
 	}
 
 	return NULL;
+}
+
+bin_op_type_t token_type_to_bin_op_type_map[TOKEN_TYPE_COUNT] = {
+	[TOKEN_TYPE_ADD] = BIN_OP_ADD,
+	[TOKEN_TYPE_SUB] = BIN_OP_SUB,
+	[TOKEN_TYPE_MUL] = BIN_OP_MUL,
+	[TOKEN_TYPE_DIV] = BIN_OP_DIV,
+	[TOKEN_TYPE_POW] = BIN_OP_POW,
+
+	[TOKEN_TYPE_ASSIGN] = BIN_OP_ASSIGN,
+
+	[TOKEN_TYPE_EQUALS]      = BIN_OP_EQUALS,
+	[TOKEN_TYPE_NOT_EQUALS]  = BIN_OP_NOT_EQUALS,
+	[TOKEN_TYPE_GREATER]     = BIN_OP_GREATER,
+	[TOKEN_TYPE_GREATER_EQU] = BIN_OP_GREATER_EQU,
+	[TOKEN_TYPE_LESS]        = BIN_OP_LESS,
+	[TOKEN_TYPE_LESS_EQU]    = BIN_OP_LESS_EQU,
+};
+
+static bin_op_type_t token_type_to_bin_op_type(token_type_t type) {
+	if (type >= TOKEN_TYPE_COUNT)
+		UNREACHABLE("Invalid token type");
+
+	return token_type_to_bin_op_type_map[type];
 }
 
 static expr_t *parse_expr_term(parser_t *p) {
@@ -143,7 +148,7 @@ static expr_t *parse_expr_term(parser_t *p) {
 
 		node->as.bin_op.left  = left;
 		node->as.bin_op.right = parse_expr_factor(p);
-		node->as.bin_op.type  = tok.type;
+		node->as.bin_op.type  = token_type_to_bin_op_type(tok.type);
 
 		left = node;
 	}
@@ -164,7 +169,7 @@ static expr_t *parse_expr_arith(parser_t *p) {
 
 		node->as.bin_op.left  = left;
 		node->as.bin_op.right = parse_expr_term(p);
-		node->as.bin_op.type  = tok.type;
+		node->as.bin_op.type  = token_type_to_bin_op_type(tok.type);
 
 		left = node;
 	}
@@ -198,7 +203,7 @@ static expr_t *parse_expr_comp(parser_t *p) {
 
 		node->as.bin_op.left  = left;
 		node->as.bin_op.right = parse_expr_arith(p);
-		node->as.bin_op.type  = tok.type;
+		node->as.bin_op.type  = token_type_to_bin_op_type(tok.type);
 
 		left = node;
 	}
@@ -217,9 +222,15 @@ static expr_t *parse_expr_assign(parser_t *p) {
 		node->type  = EXPR_TYPE_BIN_OP;
 		node->where = tok.where;
 
-		node->as.bin_op.left  = left;
-		node->as.bin_op.right = parse_expr_comp(p);
-		node->as.bin_op.type  = tok.type;
+		if (token_type_is_bin_op(p->tok.type)) {
+			node->as.bin_op.type = token_type_to_bin_op_type(p->tok.type);
+			parser_skip(p);
+		} else
+			node->as.bin_op.type = BIN_OP_ASSIGN;
+
+		node->as.bin_op.left   = left;
+		node->as.bin_op.right  = parse_expr_comp(p);
+		node->as.bin_op.assign = true;
 
 		left = node;
 	}
@@ -247,13 +258,13 @@ static stmt_t *parse_stmt_let(parser_t *p) {
 
 	parser_skip(p);
 	if (p->tok.type != TOKEN_TYPE_ID)
-		fatal(p->tok.where, "Expected identifier, got '%s'", token_type_to_cstr(p->tok.type));
+		error(p->tok.where, "Expected identifier, got '%s'", token_type_to_cstr(p->tok.type));
 
 	stmt->as.let.name = p->tok.data;
 
 	parser_advance(p);
 	if (p->tok.type != TOKEN_TYPE_ASSIGN)
-		fatal(p->tok.where, "Expected '=', got '%s'", token_type_to_cstr(p->tok.type));
+		error(p->tok.where, "Expected '=', got '%s'", token_type_to_cstr(p->tok.type));
 
 	parser_skip(p);
 	stmt->as.let.val = parse_expr(p);
@@ -261,9 +272,48 @@ static stmt_t *parse_stmt_let(parser_t *p) {
 	return stmt;
 }
 
+static stmt_t *parse_stmt(parser_t *p);
+
+static stmt_t *parse_stmts(parser_t *p) {
+	where_t start = p->tok.where;
+
+	stmt_t *stmts = NULL, *last = NULL;
+	while (p->tok.type != TOKEN_TYPE_END) {
+		if (p->tok.type == TOKEN_TYPE_EOF) {
+			from(start);
+			error(p->tok.where, "Expected 'end', got '%s'", token_type_to_cstr(p->tok.type));
+		}
+
+		stmt_t *stmt = parse_stmt(p);
+		if (stmts == NULL) {
+			stmts = stmt;
+			last  = stmt;
+		} else {
+			last->next = stmt;
+			last = last->next;
+		}
+	}
+
+	parser_skip(p);
+	return stmts;
+}
+
+static stmt_t *parse_stmt_if(parser_t *p) {
+	stmt_t *stmt = stmt_new();
+	stmt->type   = STMT_TYPE_IF;
+	stmt->where  = p->tok.where;
+
+	parser_skip(p);
+	stmt->as.if_.cond = parse_expr(p);
+	stmt->as.if_.body = parse_stmts(p);
+
+	return stmt;
+}
+
 static stmt_t *parse_stmt(parser_t *p) {
 	switch (p->tok.type) {
 	case TOKEN_TYPE_LET: return parse_stmt_let(p);
+	case TOKEN_TYPE_IF:  return parse_stmt_if(p);
 
 	default: return parse_stmt_expr(p);
 	}

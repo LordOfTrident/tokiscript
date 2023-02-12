@@ -4,14 +4,6 @@ void env_init(env_t *e) {
 	memset(e, 0, sizeof(*e));
 }
 
-static void wrong_type(where_t where, value_type_t type, const char *in) {
-	fatal(where, "Wrong type '%s' in %s", value_type_to_cstr(type), in);
-}
-
-static void wrong_arg_count(where_t where, size_t got, size_t expected) {
-	fatal(where, "Expected '%zu' argument(s), got '%zu'", expected, got);
-}
-
 static value_t eval_expr(env_t *e, expr_t *expr);
 
 static value_t builtin_print(env_t *e, expr_t *expr) {
@@ -74,7 +66,7 @@ static value_t eval_expr_call(env_t *e, expr_t *expr) {
 			return builtins[i].func(e, expr);
 	}
 
-	fatal(expr->where, "Unknown function '%s'", expr->as.call.name);
+	error(expr->where, "Unknown function '%s'", expr->as.call.name);
 	return value_nil();
 }
 
@@ -93,7 +85,7 @@ static var_t *env_get_var(env_t *e, char *name) {
 static value_t eval_expr_id(env_t *e, expr_t *expr) {
 	var_t *var = env_get_var(e, expr->as.id.name);
 	if (var == NULL)
-		fatal(expr->where, "Undefined variable '%s'", expr->as.id.name);
+		undefined(expr->where, expr->as.id.name);
 
 	return var->val;
 }
@@ -127,104 +119,229 @@ static value_t eval_expr_bin_op_equals(env_t *e, expr_t *expr) {
 	return result;
 }
 
-static value_t eval_expr_bin_op(env_t *e, expr_t *expr) {
+static value_t eval_expr_bin_op_not_equals(env_t *e, expr_t *expr) {
+	value_t val  = eval_expr_bin_op_equals(e, expr);
+	val.as.bool_ = !val.as.bool_;
+	return val;
+}
+
+static value_t eval_expr_bin_op_assign(env_t *e, expr_t *expr) {
 	expr_bin_op_t *bin_op = &expr->as.bin_op;
 
-	switch (bin_op->type) {
-	case TOKEN_TYPE_EQUALS: return eval_expr_bin_op_equals(e, expr);
-	case TOKEN_TYPE_NOT_EQUALS: {
-		value_t value  = eval_expr_bin_op_equals(e, expr);
-		value.as.bool_ = !value.as.bool_;
-		return value;
-	}
+	if (bin_op->left->type != EXPR_TYPE_ID)
+		error(expr->where, "left side of '=' expected variable");
 
-	case TOKEN_TYPE_ASSIGN: {
+	char *name = bin_op->left->as.id.name;
+
+	value_t val = eval_expr(e, bin_op->right);
+	var_t *var  = env_get_var(e, name);
+	if (var == NULL)
+		undefined(expr->where, name);
+
+	if (val.type != var->val.type)
+		wrong_type(expr->where, val.type, "assignment");
+
+	var->val = val;
+	return val;
+}
+
+static value_t eval_expr_bin_op_add(env_t *e, expr_t *expr) {
+	expr_bin_op_t *bin_op = &expr->as.bin_op;
+
+	if (bin_op->assign) {
 		if (bin_op->left->type != EXPR_TYPE_ID)
-			fatal(expr->where, "left side of '=' expected variable");
+			error(expr->where, "left side of '=' expected variable");
 
 		char *name = bin_op->left->as.id.name;
 
 		value_t val = eval_expr(e, bin_op->right);
-		var_t  *var = env_get_var(e, name);
+		var_t *var  = env_get_var(e, name);
 		if (var == NULL)
-			fatal(expr->where, "Undefined variable '%s'", name);
+			undefined(expr->where, name);
 
 		if (val.type != var->val.type)
-			wrong_type(expr->where, val.type, "assignment");
+			wrong_type(expr->where, val.type, "'+' assignment");
 
-		var->val = val;
+		if (val.type != VALUE_TYPE_NUM)
+			wrong_type(expr->where, val.type, "left side of '+' assignment");
+
+		var->val.as.num += val.as.num;
 		return val;
-	} break;
-
-	case TOKEN_TYPE_ADD: {
-		value_t left  = eval_expr(e, bin_op->left);
-		value_t right = eval_expr(e, bin_op->right);
-
-		if (left.type != VALUE_TYPE_NUM)
-			wrong_type(expr->where, left.type, "left side of '+' operation");
-		else if (right.type != VALUE_TYPE_NUM)
-			wrong_type(expr->where, right.type,
-			           "right side of '+' operation, expected same as left side");
-
-		left.as.num += right.as.num;
-		return left;
 	}
 
-	case TOKEN_TYPE_SUB: {
-		value_t left  = eval_expr(e, bin_op->left);
-		value_t right = eval_expr(e, bin_op->right);
+	value_t left  = eval_expr(e, bin_op->left);
+	value_t right = eval_expr(e, bin_op->right);
 
-		if (left.type != VALUE_TYPE_NUM)
-			wrong_type(expr->where, left.type, "left side of '-' operation");
-		else if (right.type != VALUE_TYPE_NUM)
-			wrong_type(expr->where, right.type,
-			           "right side of '-' operation, expected same as left side");
+	if (left.type != VALUE_TYPE_NUM)
+		wrong_type(expr->where, left.type, "left side of '+' operation");
+	else if (right.type != VALUE_TYPE_NUM)
+		wrong_type(expr->where, right.type,
+		           "right side of '+' operation, expected same as left side");
 
-		left.as.num -= right.as.num;
-		return left;
+	left.as.num += right.as.num;
+	return left;
+}
+
+static value_t eval_expr_bin_op_sub(env_t *e, expr_t *expr) {
+	expr_bin_op_t *bin_op = &expr->as.bin_op;
+
+	if (bin_op->assign) {
+		if (bin_op->left->type != EXPR_TYPE_ID)
+			error(expr->where, "left side of '=' expected variable");
+
+		char *name = bin_op->left->as.id.name;
+
+		value_t val = eval_expr(e, bin_op->right);
+		var_t *var  = env_get_var(e, name);
+		if (var == NULL)
+			undefined(expr->where, name);
+
+		if (val.type != var->val.type)
+			wrong_type(expr->where, val.type, "'-' assignment");
+
+		if (val.type != VALUE_TYPE_NUM)
+			wrong_type(expr->where, val.type, "left side of '-' assignment");
+
+		var->val.as.num -= val.as.num;
+		return val;
 	}
 
-	case TOKEN_TYPE_MUL: {
-		value_t left  = eval_expr(e, bin_op->left);
-		value_t right = eval_expr(e, bin_op->right);
+	value_t left  = eval_expr(e, bin_op->left);
+	value_t right = eval_expr(e, bin_op->right);
 
-		if (left.type != VALUE_TYPE_NUM)
-			wrong_type(expr->where, left.type, "left side of '*' operation");
-		else if (right.type != VALUE_TYPE_NUM)
-			wrong_type(expr->where, right.type,
-			           "right side of '*' operation, expected same as left side");
+	if (left.type != VALUE_TYPE_NUM)
+		wrong_type(expr->where, left.type, "left side of '-' operation");
+	else if (right.type != VALUE_TYPE_NUM)
+		wrong_type(expr->where, right.type,
+		           "right side of '-' operation, expected same as left side");
 
-		left.as.num *= right.as.num;
-		return left;
+	left.as.num -= right.as.num;
+	return left;
+}
+
+static value_t eval_expr_bin_op_mul(env_t *e, expr_t *expr) {
+	expr_bin_op_t *bin_op = &expr->as.bin_op;
+
+	if (bin_op->assign) {
+		if (bin_op->left->type != EXPR_TYPE_ID)
+			error(expr->where, "left side of '=' expected variable");
+
+		char *name = bin_op->left->as.id.name;
+
+		value_t val = eval_expr(e, bin_op->right);
+		var_t *var  = env_get_var(e, name);
+		if (var == NULL)
+			undefined(expr->where, name);
+
+		if (val.type != var->val.type)
+			wrong_type(expr->where, val.type, "'*' assignment");
+
+		if (val.type != VALUE_TYPE_NUM)
+			wrong_type(expr->where, val.type, "left side of '*' assignment");
+
+		var->val.as.num *= val.as.num;
+		return val;
 	}
 
-	case TOKEN_TYPE_DIV: {
-		value_t left  = eval_expr(e, bin_op->left);
-		value_t right = eval_expr(e, bin_op->right);
+	value_t left  = eval_expr(e, bin_op->left);
+	value_t right = eval_expr(e, bin_op->right);
 
-		if (left.type != VALUE_TYPE_NUM)
-			wrong_type(expr->where, left.type, "left side of '/' operation");
-		else if (right.type != VALUE_TYPE_NUM)
-			wrong_type(expr->where, right.type,
-			           "right side of '/' operation, expected same as left side");
+	if (left.type != VALUE_TYPE_NUM)
+		wrong_type(expr->where, left.type, "left side of '*' operation");
+	else if (right.type != VALUE_TYPE_NUM)
+		wrong_type(expr->where, right.type,
+		           "right side of '*' operation, expected same as left side");
 
-		left.as.num /= right.as.num;
-		return left;
+	left.as.num *= right.as.num;
+	return left;
+}
+
+static value_t eval_expr_bin_op_div(env_t *e, expr_t *expr) {
+	expr_bin_op_t *bin_op = &expr->as.bin_op;
+
+	if (bin_op->assign) {
+		if (bin_op->left->type != EXPR_TYPE_ID)
+			error(expr->where, "left side of '=' expected variable");
+
+		char *name = bin_op->left->as.id.name;
+
+		value_t val = eval_expr(e, bin_op->right);
+		var_t *var  = env_get_var(e, name);
+		if (var == NULL)
+			undefined(expr->where, name);
+
+		if (val.type != var->val.type)
+			wrong_type(expr->where, val.type, "'/' assignment");
+
+		if (val.type != VALUE_TYPE_NUM)
+			wrong_type(expr->where, val.type, "left side of '/' assignment");
+
+		var->val.as.num /= val.as.num;
+		return val;
 	}
 
-	case TOKEN_TYPE_POW: {
-		value_t left  = eval_expr(e, bin_op->left);
-		value_t right = eval_expr(e, bin_op->right);
+	value_t left  = eval_expr(e, bin_op->left);
+	value_t right = eval_expr(e, bin_op->right);
 
-		if (left.type != VALUE_TYPE_NUM)
-			wrong_type(expr->where, left.type, "left side of '^' operation");
-		else if (right.type != VALUE_TYPE_NUM)
-			wrong_type(expr->where, right.type,
-			           "right side of '^' operation, expected same as left side");
+	if (left.type != VALUE_TYPE_NUM)
+		wrong_type(expr->where, left.type, "left side of '/' operation");
+	else if (right.type != VALUE_TYPE_NUM)
+		wrong_type(expr->where, right.type,
+		           "right side of '/' operation, expected same as left side");
 
-		left.as.num = pow(left.as.num, right.as.num);
-		return left;
+	left.as.num /= right.as.num;
+	return left;
+}
+
+static value_t eval_expr_bin_op_pow(env_t *e, expr_t *expr) {
+	expr_bin_op_t *bin_op = &expr->as.bin_op;
+
+	if (bin_op->assign) {
+		if (bin_op->left->type != EXPR_TYPE_ID)
+			error(expr->where, "left side of '=' expected variable");
+
+		char *name = bin_op->left->as.id.name;
+
+		value_t val = eval_expr(e, bin_op->right);
+		var_t *var  = env_get_var(e, name);
+		if (var == NULL)
+			undefined(expr->where, name);
+
+		if (val.type != var->val.type)
+			wrong_type(expr->where, val.type, "'^' assignment");
+
+		if (val.type != VALUE_TYPE_NUM)
+			wrong_type(expr->where, val.type, "left side of '^' assignment");
+
+		var->val.as.num = pow(var->val.as.num, val.as.num);
+		return val;
 	}
+
+	value_t left  = eval_expr(e, bin_op->left);
+	value_t right = eval_expr(e, bin_op->right);
+
+	if (left.type != VALUE_TYPE_NUM)
+		wrong_type(expr->where, left.type, "left side of '^' operation");
+	else if (right.type != VALUE_TYPE_NUM)
+		wrong_type(expr->where, right.type,
+		           "right side of '^' operation, expected same as left side");
+
+	left.as.num = pow(left.as.num, right.as.num);
+	return left;
+}
+
+static value_t eval_expr_bin_op(env_t *e, expr_t *expr) {
+	switch (expr->as.bin_op.type) {
+	case BIN_OP_EQUALS:     return eval_expr_bin_op_equals(    e, expr);
+	case BIN_OP_NOT_EQUALS: return eval_expr_bin_op_not_equals(e, expr);
+
+	case BIN_OP_ASSIGN: return eval_expr_bin_op_assign(e, expr);
+
+	case BIN_OP_ADD: return eval_expr_bin_op_add(e, expr);
+	case BIN_OP_SUB: return eval_expr_bin_op_sub(e, expr);
+	case BIN_OP_MUL: return eval_expr_bin_op_mul(e, expr);
+	case BIN_OP_DIV: return eval_expr_bin_op_div(e, expr);
+	case BIN_OP_POW: return eval_expr_bin_op_pow(e, expr);
 
 	default: UNREACHABLE("Unknown binary operation type");
 	}
@@ -252,14 +369,25 @@ static void eval_stmt_let(env_t *e, stmt_t *stmt) {
 			if (idx == (size_t)-1)
 				idx = i;
 		} else if (strcmp(e->vars[i].name, let->name) == 0)
-			fatal(stmt->where, "Variable '%s' redeclared", let->name);
+			error(stmt->where, "Variable '%s' redeclared", let->name);
 	}
 
 	if (idx == (size_t)-1)
-		fatal(stmt->where, "Reached max limit of %i variables", VARS_CAPACITY);
+		error(stmt->where, "Reached max limit of %i variables", VARS_CAPACITY);
 
 	e->vars[idx].name = let->name;
 	e->vars[idx].val  = eval_expr(e, let->val);
+}
+
+static void eval_stmt_if(env_t *e, stmt_t *stmt) {
+	stmt_if_t *if_ = &stmt->as.if_;
+
+	value_t cond = eval_expr(e, if_->cond);
+	if (cond.type != VALUE_TYPE_BOOL)
+		wrong_type(stmt->where, cond.type, "if statement condition");
+
+	if (cond.as.bool_)
+		eval(e, if_->body);
 }
 
 void eval(env_t *e, stmt_t *program) {
@@ -267,6 +395,7 @@ void eval(env_t *e, stmt_t *program) {
 		switch (stmt->type) {
 		case STMT_TYPE_EXPR: eval_expr(e, stmt->as.expr); break;
 		case STMT_TYPE_LET:  eval_stmt_let(e, stmt);      break;
+		case STMT_TYPE_IF:   eval_stmt_if( e, stmt);      break;
 
 		default: UNREACHABLE("Unknown statement type");
 		}

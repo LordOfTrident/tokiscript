@@ -22,6 +22,7 @@ $ git clone --recurse-submodules https://github.com/LordOfTrident/fembed
 
 ## Table of contents
 * [Quickstart](#quickstart)
+* [Features](#features)
 * [Editors](#editors)
 * [Bugs](#bugs)
 
@@ -34,6 +35,21 @@ $ tokiscript tests/hello_world.toki
 ```
 
 See build usage with `./build -h`
+
+## Features
+- [X] Lexer
+- [X] Parser
+- [X] Interpreter
+- [X] Printing
+- [X] Expressions
+- [X] Variables
+- [X] If statements
+- [ ] Else and elif statements
+- [ ] Proper type checking
+- [ ] Scopes
+- [ ] While loops
+- [ ] For loops
+- [ ] Functions
 
 ## Editors
 Syntax highlighting configs for text editors are in the [`./editors`](./editors) folder

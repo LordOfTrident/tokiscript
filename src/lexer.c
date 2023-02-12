@@ -54,6 +54,14 @@ static token_t lex_id(lexer_t *l) {
 		type = TOKEN_TYPE_FALSE;
 	else if (strcmp(l->tok, "let") == 0)
 		type = TOKEN_TYPE_LET;
+	else if (strcmp(l->tok, "if") == 0)
+		type = TOKEN_TYPE_IF;
+	else if (strcmp(l->tok, "elif") == 0)
+		type = TOKEN_TYPE_ELIF;
+	else if (strcmp(l->tok, "else") == 0)
+		type = TOKEN_TYPE_ELSE;
+	else if (strcmp(l->tok, "end") == 0)
+		type = TOKEN_TYPE_END;
 
 	return token_new(strcpy_to_heap(l->tok), type, start);
 }
