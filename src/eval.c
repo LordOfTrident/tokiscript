@@ -164,7 +164,7 @@ static value_t eval_expr_bin_op(env_t *e, expr_t *expr) {
 			wrong_type(expr->where, left.type, "left side of '+' operation");
 		else if (right.type != VALUE_TYPE_NUM)
 			wrong_type(expr->where, right.type,
-			           "right side of '+' operation, expectedcted same as left side");
+			           "right side of '+' operation, expected same as left side");
 
 		left.as.num += right.as.num;
 		return left;

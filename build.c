@@ -1,3 +1,6 @@
+/* Note: this build file lacks error checks for stuff like malloc, because it just made the code
+   less readable and i didnt find it as useful for the build program */
+
 #include <string.h> /* strcmp, strcpy, strlen */
 #include <malloc.h> /* malloc, free */
 #include <assert.h> /* assert */
@@ -26,14 +29,18 @@ void create_dir_if_missing(const char *path) {
 		fs_create_dir(path);
 }
 
-char *build_file(const char *src_name) {
+char *build_file(build_cache_t *c, const char *src_name) {
 	char *out_name = fs_replace_ext(src_name, "o");
 	char *out      = FS_JOIN_PATH(BIN, out_name);
 	char *src      = FS_JOIN_PATH(SRC, src_name);
 	free(out_name);
 
-	/* Compile the object file */
-	CMD(cc, "-c", src, "-o", out, CARGS);
+	int64_t m_now, m_cached = build_cache_get(c, src);
+	fs_time(src, &m_now, NULL);
+	if (m_cached != m_now) {
+		build_cache_set(c, src, m_now);
+		CMD(cc, "-c", src, "-o", out, CARGS); /* Build the file */
+	}
 
 	free(src);
 	return out;
@@ -46,6 +53,9 @@ void build(void) {
 	char  *o_files[32];
 	size_t o_files_count = 0;
 
+	build_cache_t c;
+	build_cache_load(&c);
+
 	int status;
 	FOREACH_IN_DIR(SRC, dir, ent, {
 		if (strcmp(fs_ext(ent.name), "c") != 0)
@@ -53,18 +63,26 @@ void build(void) {
 
 		assert(o_files_count < sizeof(o_files) / sizeof(o_files[0]));
 
-		char *out = build_file(ent.name);
+		char *out = build_file(&c, ent.name);
 		o_files[o_files_count ++] = out;
 	}, status);
 
 	if (status != 0)
 		LOG_FATAL("Failed to open directory '%s'", SRC);
 
-	/* For compiling a variable list of files, we use the COMPILE macro */
-	COMPILE(cc, o_files, o_files_count, "-o", BIN"/"OUT, CARGS, CLIBS);
+	if (o_files_count == 0)
+		LOG_INFO("Nothing to rebuild");
+	else {
+		build_cache_save(&c);
 
-	for (size_t i = 0; i < o_files_count; ++ i)
-		free(o_files[i]);
+		/* For compiling a variable list of files, we use the COMPILE macro */
+		COMPILE(cc, o_files, o_files_count, "-o", BIN"/"OUT, CARGS, CLIBS);
+
+		for (size_t i = 0; i < o_files_count; ++ i)
+			free(o_files[i]);
+	}
+
+	build_cache_free(&c);
 }
 
 void clean(void) {
@@ -85,6 +103,8 @@ void clean(void) {
 
 	if (status != 0)
 		LOG_FATAL("Failed to open directory '%s'", SRC);
+
+	build_cache_delete();
 
 	if (!found)
 		LOG_INFO("Nothing to clean");

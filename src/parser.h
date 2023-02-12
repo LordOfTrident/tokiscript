@@ -5,6 +5,8 @@
 #include <stdio.h>  /* stderr, fprintf */
 #include <stdlib.h> /* atof */
 
+#include <colorer/colorer.h>
+
 #include "common.h"
 #include "lexer.h"
 #include "token.h"

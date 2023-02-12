@@ -8,7 +8,13 @@ void fatal(where_t where, const char *fmt, ...) {
 	vsnprintf(buf, sizeof(buf), fmt, args);
 	va_end(args);
 
-	fprintf(stderr, "%s:%i:%i: Error: %s\n", where.path, where.row, where.col, buf);
+	color_bold(stderr);
+	fprintf(stderr, "%s:%i:%i: ", where.path, where.row, where.col);
+	color_fg(stderr, COLOR_BRED);
+	fprintf(stderr, "Error:");
+	color_reset(stderr);
+	fprintf(stderr, " %s\n", buf);
+
 	exit(EXIT_FAILURE);
 }
 
