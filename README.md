@@ -23,6 +23,7 @@ $ git clone --recurse-submodules https://github.com/LordOfTrident/fembed
 ## Table of contents
 * [Quickstart](#quickstart)
 * [Features](#features)
+* [Documentation](#documentation)
 * [Editors](#editors)
 * [Bugs](#bugs)
 
@@ -50,6 +51,9 @@ See build usage with `./build -h`
 - [ ] While loops
 - [ ] For loops
 - [ ] Functions
+
+## Documentation
+Coming soon
 
 ## Editors
 Syntax highlighting configs for text editors are in the [`./editors`](./editors) folder
