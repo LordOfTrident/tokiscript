@@ -5,8 +5,8 @@
 #include <stdlib.h> /* exit, EXIT_FAILURE, EXIT_SUCCESS */
 #include <stdarg.h> /* va_list, va_start, va_end, vsnprintf */
 
-#include <cargs/cargs.h>
-#include <colorer/colorer.h>
+#include <cargs.h>
+#include <colorer.h>
 
 #include "common.h"
 #include "parser.h"

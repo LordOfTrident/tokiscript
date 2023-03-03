@@ -14,13 +14,13 @@
 #define INSTALL "tokiscript"
 
 #define CARGS "-O2", "-std=c11", "-Wall", "-Wextra", "-Werror", "-pedantic", \
-              "-Wno-deprecated-declarations", "-I./lib"
+              "-Wno-deprecated-declarations", "-I./chol"
 #define CLIBS "-lm"
 
 #define INSTALL_DIR "/usr/bin"
 
 #define CBUILDER_IMPLEMENTATION
-#include "cbuilder/cbuilder.h"
+#include "chol/cbuilder.h"
 
 char *cc = CC;
 
@@ -86,7 +86,7 @@ int main(int argc, const char **argv) {
 		}
 	} else {
 		const char *srcs[] = {SRC};
-		build(cc, srcs, sizeof(srcs) / sizeof(srcs[0]), BIN, BIN"/"OUT);
+		build_multi_src_app(cc, srcs, sizeof(srcs) / sizeof(srcs[0]), BIN, BIN"/"OUT);
 	}
 
 	free(stripped.base);

@@ -3,13 +3,13 @@
 
 <p align="center">
 	<a href="./LICENSE">
-		<img alt="License" src="https://img.shields.io/badge/license-GPL-blue?color=26d374"/>
+		<img alt="License" src="https://img.shields.io/badge/license-GPL v3-26c374?style=for-the-badge">
 	</a>
 	<a href="https://github.com/LordOfTrident/tokiscript/issues">
-		<img alt="Issues" src="https://img.shields.io/github/issues/LordOfTrident/tokiscript?color=4f79e4"/>
+		<img alt="Issues" src="https://img.shields.io/github/issues/LordOfTrident/tokiscript?style=for-the-badge&color=4f79e4">
 	</a>
 	<a href="https://github.com/LordOfTrident/tokiscript/pulls">
-		<img alt="GitHub pull requests" src="https://img.shields.io/github/issues-pr/LordOfTrident/tokiscript?color=4f79e4"/>
+		<img alt="GitHub pull requests" src="https://img.shields.io/github/issues-pr/LordOfTrident/tokiscript?style=for-the-badge&color=4f79e4">
 	</a>
 </p>
 
@@ -17,7 +17,7 @@ A simple dynamically typed interpreted language i decided to write in C for fun 
 
 Clone this repo with
 ```sh
-$ git clone --recurse-submodules https://github.com/LordOfTrident/fembed
+$ git clone --recurse-submodules https://github.com/LordOfTrident/tokiscript
 ```
 
 ## Table of contents

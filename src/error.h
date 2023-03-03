@@ -4,7 +4,7 @@
 #include <stdarg.h> /* va_list, va_start, va_end, vsnprintf */
 #include <stdio.h>  /* stderr, fprintf */
 
-#include <colorer/colorer.h>
+#include <colorer.h>
 
 #include "token.h"
 #include "value.h"
