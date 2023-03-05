@@ -86,7 +86,12 @@ int main(int argc, const char **argv) {
 		}
 	} else {
 		const char *srcs[] = {SRC};
-		build_multi_src_app(cc, srcs, sizeof(srcs) / sizeof(srcs[0]), BIN, BIN"/"OUT);
+		build_app_config_t config = {
+			.src_ext = "c", .header_ext = "h",
+			.bin = BIN, .out = BIN"/"OUT,
+			.srcs = srcs, .srcs_count = sizeof(srcs) / sizeof(srcs[0]),
+		};
+		build_app(cc, &config);
 	}
 
 	free(stripped.base);
