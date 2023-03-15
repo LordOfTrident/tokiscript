@@ -14,13 +14,13 @@
 #define INSTALL "tokiscript"
 
 #define CARGS "-O2", "-std=c11", "-Wall", "-Wextra", "-Werror", "-pedantic", \
-              "-Wno-deprecated-declarations", "-I./chol"
+              "-Wno-deprecated-declarations", "-I./"
 #define CLIBS "-lm"
 
 #define INSTALL_DIR "/usr/bin"
 
-#define CBUILDER_IMPLEMENTATION
-#include "chol/cbuilder.h"
+#define CHOL_BUILDER_IMPLEMENTATION
+#include "chol/builder.h"
 
 char *cc = CC;
 

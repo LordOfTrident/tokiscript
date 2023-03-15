@@ -1,10 +1,10 @@
 #include "main.h"
 
-#define CARGS_IMPLEMENTATION
-#include <cargs.h>
+#define CHOL_ARGS_IMPLEMENTATION
+#include <chol/args.h>
 
-#define COLORER_IMPLEMENTATION
-#include <colorer.h>
+#define CHOL_COLORER_IMPLEMENTATION
+#include <chol/colorer.h>
 
 static void arg_fatal(const char *fmt, ...) {
 	char    msg[256];
