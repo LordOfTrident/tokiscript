@@ -1,0 +1,18 @@
+# TODO (58% done)
+- [X] Basic "Hello, world!"
+- [X] Expressions
+- [X] Variables
+- [X] If statements
+- [X] Else and elif statements
+- [X] While loops
+- [X] For loops
+- [X] Scopes
+- [X] Do blocks, return
+- [X] Defer
+- [ ] Functions
+- [ ] Lists, indexing
+- [ ] Objects/structures
+- [ ] Maps
+- [ ] Proper type checking
+- [ ] Optional static typing layer
+- [ ] A standard library with file IO, etc.

@@ -22,7 +22,7 @@ $ git clone --recurse-submodules https://github.com/LordOfTrident/tokiscript
 
 ## Table of contents
 * [Quickstart](#quickstart)
-* [Features](#features)
+* [TODO](#todo)
 * [Documentation](#documentation)
 * [Editors](#editors)
 * [Bugs](#bugs)
@@ -37,20 +37,8 @@ $ tokiscript tests/hello_world.toki
 
 See build usage with `./build -h`
 
-## Features
-- [X] Lexer
-- [X] Parser
-- [X] Interpreter
-- [X] Printing
-- [X] Expressions
-- [X] Variables
-- [X] If statements
-- [ ] Else and elif statements
-- [ ] Proper type checking
-- [ ] Scopes
-- [ ] While loops
-- [ ] For loops
-- [ ] Functions
+## TODO
+See [todo.md](./todo.md)
 
 ## Documentation
 Coming soon

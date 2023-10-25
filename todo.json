@@ -1,0 +1,104 @@
+[
+	{
+		"type": "task",
+		"title": "Basic \"Hello, world!\"",
+		"desc": null,
+		"done": true
+	},
+	{
+		"type": "task",
+		"title": "Expressions",
+		"desc": null,
+		"done": true
+	},
+	{
+		"type": "task",
+		"title": "Variables",
+		"desc": null,
+		"done": true
+	},
+	{
+		"type": "task",
+		"title": "If statements",
+		"desc": null,
+		"done": true
+	},
+	{
+		"type": "task",
+		"title": "Else and elif statements",
+		"desc": null,
+		"done": true
+	},
+	{
+		"type": "task",
+		"title": "While loops",
+		"desc": null,
+		"done": true
+	},
+	{
+		"type": "task",
+		"title": "For loops",
+		"desc": null,
+		"done": true
+	},
+	{
+		"type": "task",
+		"title": "Scopes",
+		"desc": null,
+		"done": true
+	},
+	{
+		"type": "task",
+		"title": "Do blocks, return",
+		"desc": null,
+		"done": true
+	},
+	{
+		"type": "task",
+		"title": "Defer",
+		"desc": null,
+		"done": true
+	},
+	{
+		"type": "task",
+		"title": "Functions",
+		"desc": null,
+		"done": false
+	},
+	{
+		"type": "task",
+		"title": "Lists, indexing",
+		"desc": null,
+		"done": false
+	},
+	{
+		"type": "task",
+		"title": "Objects/structures",
+		"desc": null,
+		"done": false
+	},
+	{
+		"type": "task",
+		"title": "Maps",
+		"desc": null,
+		"done": false
+	},
+	{
+		"type": "task",
+		"title": "Proper type checking",
+		"desc": null,
+		"done": false
+	},
+	{
+		"type": "task",
+		"title": "Optional static typing layer",
+		"desc": null,
+		"done": false
+	},
+	{
+		"type": "task",
+		"title": "A standard library with file IO, etc.",
+		"desc": null,
+		"done": false
+	}
+]
