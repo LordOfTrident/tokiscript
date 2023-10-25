@@ -76,6 +76,8 @@ int main(int argc, const char **argv) {
 
 		env_init(&e);
 		eval(&e, program);
+		env_deinit(&e);
+
 		stmt_free(program);
 	});
 

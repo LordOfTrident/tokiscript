@@ -1,7 +1,36 @@
 #include "eval.h"
 
+static void env_scope_begin(env_t *e) {
+	if (e->scope == NULL)
+		e->scope = e->scopes;
+	else
+		/* TODO: Possible buffer overflow */
+		++ e->scope;
+
+	e->scope->vars_count = 0;
+	if (e->scope->vars == NULL) {
+		e->scope->vars_cap = VARS_CHUNK;
+		e->scope->vars     = (var_t*)malloc(e->scope->vars_cap * sizeof(var_t));
+		if (e->scope->vars == NULL)
+			UNREACHABLE("malloc() fail");
+	}
+}
+
+static void env_scope_end(env_t *e) {
+	-- e->scope;
+}
+
 void env_init(env_t *e) {
 	memset(e, 0, sizeof(*e));
+	env_scope_begin(e);
+}
+
+void env_deinit(env_t *e) {
+	env_scope_end(e);
+	for (size_t i = 0; i < MAX_NEST; ++ i) {
+		if (e->scopes[i].vars != NULL)
+			free(e->scopes[i].vars);
+	}
 }
 
 static value_t eval_expr(env_t *e, expr_t *expr);
@@ -139,6 +168,7 @@ static value_t builtin_readstr(env_t *e, expr_t *expr) {
 			buf[len - 1] = '\0';
 	}
 
+	/* TODO: Solve memory leaks */
 	return value_str(strcpy_to_heap(buf));
 }
 
@@ -162,12 +192,14 @@ static value_t eval_expr_call(env_t *e, expr_t *expr) {
 }
 
 static var_t *env_get_var(env_t *e, char *name) {
-	for (size_t i = 0; i < VARS_CAPACITY; ++ i) {
-		if (e->vars[i].name == NULL)
-			continue;
+	for (scope_t *scope = e->scope; scope != e->scopes - 1; -- scope) {
+		for (size_t i = 0; i < scope->vars_count; ++ i) {
+			if (scope->vars[i].name == NULL)
+				continue;
 
-		if (strcmp(e->vars[i].name, name) == 0)
-			return &e->vars[i];
+			if (strcmp(scope->vars[i].name, name) == 0)
+				return &scope->vars[i];
+		}
 	}
 
 	return NULL;
@@ -401,13 +433,24 @@ static value_t eval_expr_bin_op_add(env_t *e, expr_t *expr) {
 	value_t left  = eval_expr(e, bin_op->left);
 	value_t right = eval_expr(e, bin_op->right);
 
-	if (left.type != VALUE_TYPE_NUM)
-		wrong_type(expr->where, left.type, "left side of '+' operation");
-	else if (right.type != VALUE_TYPE_NUM)
+	if (right.type != left.type)
 		wrong_type(expr->where, right.type,
 		           "right side of '+' operation, expected same as left side");
 
-	left.as.num += right.as.num;
+	if (left.type == VALUE_TYPE_STR) {
+		/* TODO: Solve memory leaks */
+		char *concatted = (char*)malloc(strlen(left.as.str) + strlen(right.as.str) + 1);
+		if (concatted == NULL)
+			UNREACHABLE("malloc() fail");
+
+		strcpy(concatted, left.as.str);
+		strcat(concatted, right.as.str);
+		left.as.str = concatted;
+	} else if (left.type == VALUE_TYPE_NUM)
+		left.as.num += right.as.num;
+	else
+		wrong_type(expr->where, left.type, "left side of '+' operation");
+
 	return left;
 }
 
@@ -520,23 +563,30 @@ static void eval_stmt_let(env_t *e, stmt_t *stmt) {
 	stmt_let_t *let = &stmt->as.let;
 
 	size_t idx = -1;
-	for (size_t i = 0; i < VARS_CAPACITY; ++ i) {
-		if (e->vars[i].name == NULL) {
+	for (size_t i = 0; i < e->scope->vars_count; ++ i) {
+		if (e->scope->vars[i].name == NULL) {
 			if (idx == (size_t)-1)
 				idx = i;
-		} else if (strcmp(e->vars[i].name, let->name) == 0)
+		} else if (strcmp(e->scope->vars[i].name, let->name) == 0)
 			error(stmt->where, "Variable '%s' redeclared", let->name);
 	}
 
-	if (idx == (size_t)-1)
-		error(stmt->where, "Reached max limit of %i variables", VARS_CAPACITY);
+	if (idx == (size_t)-1) {
+		e->scope->vars_cap *= 2;
+		e->scope->vars      = (var_t*)realloc(e->scope->vars, e->scope->vars_cap * sizeof(var_t));
+		if (e->scope->vars == NULL)
+			UNREACHABLE("realloc() fail");
 
-	e->vars[idx].name = let->name;
-	e->vars[idx].val  = eval_expr(e, let->val);
+		idx = e->scope->vars_count ++;
+	}
+
+	e->scope->vars[idx].name = let->name;
+	e->scope->vars[idx].val  = eval_expr(e, let->val);
 }
 
 static void eval_stmt_if(env_t *e, stmt_t *stmt) {
 	stmt_if_t *if_ = &stmt->as.if_;
+	env_scope_begin(e);
 
 	value_t cond = eval_expr(e, if_->cond);
 	if (cond.type != VALUE_TYPE_BOOL)
@@ -548,10 +598,13 @@ static void eval_stmt_if(env_t *e, stmt_t *stmt) {
 		eval_stmt_if(e, if_->next);
 	else
 		eval(e, if_->else_);
+
+	env_scope_end(e);
 }
 
 static void eval_stmt_while(env_t *e, stmt_t *stmt) {
 	stmt_while_t *while_ = &stmt->as.while_;
+	env_scope_begin(e);
 
 	while (true) {
 		value_t cond = eval_expr(e, while_->cond);
@@ -563,10 +616,13 @@ static void eval_stmt_while(env_t *e, stmt_t *stmt) {
 		else
 			break;
 	}
+
+	env_scope_end(e);
 }
 
 static void eval_stmt_for(env_t *e, stmt_t *stmt) {
 	stmt_for_t *for_ = &stmt->as.for_;
+	env_scope_begin(e);
 
 	eval(e, for_->init);
 	while (true) {
@@ -575,11 +631,15 @@ static void eval_stmt_for(env_t *e, stmt_t *stmt) {
 			wrong_type(stmt->where, cond.type, "for statement condition");
 
 		if (cond.as.bool_) {
+			env_scope_begin(e);
 			eval(e, for_->body);
 			eval(e, for_->step);
+			env_scope_end(e);
 		} else
 			break;
 	}
+
+	env_scope_end(e);
 }
 
 void eval(env_t *e, stmt_t *program) {

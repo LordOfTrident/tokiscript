@@ -16,10 +16,16 @@ typedef struct {
 	value_t val;
 } var_t;
 
-#define VARS_CAPACITY 128
+#define VARS_CHUNK 32
+#define MAX_NEST   64
 
 typedef struct {
-	var_t vars[VARS_CAPACITY];
+	var_t *vars;
+	size_t vars_count, vars_cap;
+} scope_t;
+
+typedef struct {
+	scope_t scopes[MAX_NEST], *scope;
 } env_t;
 
 typedef value_t (*builtin_func_t)(env_t*, expr_t *expr);
@@ -29,7 +35,8 @@ typedef struct {
 	builtin_func_t func;
 } builtin_t;
 
-void env_init(env_t *e);
+void env_init(  env_t *e);
+void env_deinit(env_t *e);
 
 void eval(env_t *e, stmt_t *program);
 
