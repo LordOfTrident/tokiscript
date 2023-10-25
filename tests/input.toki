@@ -1,0 +1,5 @@
+let num = readnum("Type in a number:")
+println("Recieved", num)
+
+let str = readstr("Type in a string:")
+println("Recieved", str, "of length", len(str))

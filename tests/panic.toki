@@ -1,0 +1,3 @@
+println("IM GONNA ERROR!!!")
+
+panic("hi i errored")

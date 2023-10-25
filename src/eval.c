@@ -6,7 +6,104 @@ void env_init(env_t *e) {
 
 static value_t eval_expr(env_t *e, expr_t *expr);
 
+static void fprint_value(value_t value, FILE *file) {
+	switch (value.type) {
+	case VALUE_TYPE_NIL:  fprintf(file, "(nil)");            break;
+	case VALUE_TYPE_STR:  fprintf(file, "%s", value.as.str); break;
+	case VALUE_TYPE_BOOL: fprintf(file, "%s", value.as.bool_? "true" : "false"); break;
+	case VALUE_TYPE_NUM: {
+		char buf[64] = {0};
+		double_to_str(value.as.num, buf, sizeof(buf));
+		fprintf(file, "%s", buf);
+	} break;
+
+	default: UNREACHABLE("Unknown value type");
+	}
+}
+
 static value_t builtin_print(env_t *e, expr_t *expr) {
+	expr_call_t *call = &expr->as.call;
+
+	for (size_t i = 0; i < call->args_count; ++ i) {
+		if (i > 0)
+			putchar(' ');
+
+		fprint_value(eval_expr(e, call->args[i]), stdout);
+	}
+
+	return value_nil();
+}
+
+static value_t builtin_println(env_t *e, expr_t *expr) {
+	builtin_print(e, expr);
+	putchar('\n');
+
+	return value_nil();
+}
+
+static value_t builtin_panic(env_t *e, expr_t *expr) {
+	expr_call_t *call = &expr->as.call;
+
+	color_bold(stderr);
+	fprintf(stderr, "%s:%i:%i: ", expr->where.path, expr->where.row, expr->where.col);
+	color_fg(stderr, COLOR_BRED);
+	fprintf(stderr, "panic():");
+	color_reset(stderr);
+
+	for (size_t i = 0; i < call->args_count; ++ i) {
+		fputc(' ', stderr);
+		fprint_value(eval_expr(e, call->args[i]), stderr);
+	}
+
+	fputc('\n', stderr);
+	exit(EXIT_FAILURE);
+	return value_nil();
+}
+
+static value_t builtin_len(env_t *e, expr_t *expr) {
+	expr_call_t *call = &expr->as.call;
+
+	if (call->args_count != 1)
+		wrong_arg_count(expr->where, call->args_count, 1);
+
+	value_t val = eval_expr(e, call->args[0]);
+	switch (val.type) {
+	case VALUE_TYPE_STR: return value_num(strlen(val.as.str));
+
+	default: wrong_type(expr->where, val.type, "'len' function");
+	}
+
+	return value_nil();
+}
+
+static value_t builtin_readnum(env_t *e, expr_t *expr) {
+	expr_call_t *call = &expr->as.call;
+
+	for (size_t i = 0; i < call->args_count; ++ i) {
+		if (i > 0)
+			putchar(' ');
+
+		fprint_value(eval_expr(e, call->args[i]), stdout);
+	}
+
+	putchar(' ');
+
+	char buf[1024] = {0};
+	{
+		char *_ = fgets(buf, sizeof(buf), stdin);
+		(void)_;
+	}
+
+	double val = 0;
+	{
+		int _ = sscanf(buf, "%lf", &val);
+		(void)_;
+	}
+
+	return value_num(val);
+}
+
+static value_t builtin_readstr(env_t *e, expr_t *expr) {
 	expr_call_t *call = &expr->as.call;
 
 	for (size_t i = 0; i < call->args_count; ++ i) {
@@ -28,36 +125,30 @@ static value_t builtin_print(env_t *e, expr_t *expr) {
 		}
 	}
 
-	return value_nil();
-}
+	putchar(' ');
 
-static value_t builtin_println(env_t *e, expr_t *expr) {
-	builtin_print(e, expr);
-	putchar('\n');
-
-	return value_nil();
-}
-
-static value_t builtin_len(env_t *e, expr_t *expr) {
-	expr_call_t *call = &expr->as.call;
-
-	if (call->args_count != 1)
-		wrong_arg_count(expr->where, call->args_count, 1);
-
-	value_t val = eval_expr(e, call->args[0]);
-	switch (val.type) {
-	case VALUE_TYPE_STR: return value_num(strlen(val.as.str));
-
-	default: wrong_type(expr->where, val.type, "'len' function");
+	char buf[1024] = {0};
+	{
+		char *_ = fgets(buf, sizeof(buf), stdin);
+		(void)_;
 	}
 
-	return value_nil();
+	size_t len = strlen(buf);
+	if (len > 0) {
+		if (buf[len - 1] == '\n')
+			buf[len - 1] = '\0';
+	}
+
+	return value_str(strcpy_to_heap(buf));
 }
 
 static builtin_t builtins[] = {
 	{.name = "println", .func = builtin_println},
 	{.name = "print",   .func = builtin_print},
 	{.name = "len",     .func = builtin_len},
+	{.name = "readnum", .func = builtin_readnum},
+	{.name = "readstr", .func = builtin_readstr},
+	{.name = "panic",   .func = builtin_panic},
 };
 
 static value_t eval_expr_call(env_t *e, expr_t *expr) {
@@ -297,6 +388,9 @@ static value_t eval_expr_bin_op_xdec(env_t *e, expr_t *expr) {
 	if (val.type != VALUE_TYPE_NUM)
 		wrong_type(expr->where, val.type, "left side of '//' assignment");
 
+	if (val.as.num == 0)
+		error(expr->where, "division by zero");
+
 	var->val.as.num /= val.as.num;
 	return val;
 }
@@ -360,6 +454,9 @@ static value_t eval_expr_bin_op_div(env_t *e, expr_t *expr) {
 	else if (right.type != VALUE_TYPE_NUM)
 		wrong_type(expr->where, right.type,
 		           "right side of '/' operation, expected same as left side");
+
+	if (right.as.num == 0)
+		error(expr->where, "division by zero");
 
 	left.as.num /= right.as.num;
 	return left;
