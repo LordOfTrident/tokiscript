@@ -270,6 +270,7 @@ token_t lexer_next(lexer_t *l) {
 		case '(': return lex_simple_sym(l, TOKEN_TYPE_LPAREN);
 		case ')': return lex_simple_sym(l, TOKEN_TYPE_RPAREN);
 		case ',': return lex_simple_sym(l, TOKEN_TYPE_COMMA);
+		case ';': return lex_simple_sym(l, TOKEN_TYPE_SEMICOLON);
 
 		case '+': return lex_add(l);
 		case '-': return lex_sub(l);

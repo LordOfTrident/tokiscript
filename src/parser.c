@@ -479,14 +479,14 @@ static stmt_t *parse_stmt_for(parser_t *p) {
 	parser_skip(p);
 	stmt->as.for_.init = parse_stmt(p);
 
-	if (p->tok.type != TOKEN_TYPE_COMMA)
-		error(p->tok.where, "Expected ',', got '%s'", token_type_to_cstr(p->tok.type));
+	if (p->tok.type != TOKEN_TYPE_SEMICOLON)
+		error(p->tok.where, "Expected ';', got '%s'", token_type_to_cstr(p->tok.type));
 
 	parser_skip(p);
 	stmt->as.for_.cond = parse_expr(p);
 
-	if (p->tok.type != TOKEN_TYPE_COMMA)
-		error(p->tok.where, "Expected ',', got '%s'", token_type_to_cstr(p->tok.type));
+	if (p->tok.type != TOKEN_TYPE_SEMICOLON)
+		error(p->tok.where, "Expected ';', got '%s'", token_type_to_cstr(p->tok.type));
 
 	parser_skip(p);
 	stmt->as.for_.step = parse_stmt(p);
