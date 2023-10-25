@@ -33,10 +33,17 @@ void expr_free(expr_t *expr) {
 		stmt_free(expr->as.do_.body);
 		break;
 
+	case EXPR_TYPE_FUN:
+		for (size_t i = 0; i < expr->as.fun.args_count; ++ i)
+			free(expr->as.fun.args[i]);
+
+		stmt_free(expr->as.fun.body);
+		break;
+
 	default: break;
 	}
 
-	static_assert(EXPR_TYPE_COUNT == 5); /* Add code to free new expressions */
+	static_assert(EXPR_TYPE_COUNT == 6); /* Add code to free new expressions */
 
 	free(expr);
 }
@@ -79,6 +86,14 @@ void stmt_free(stmt_t *stmt) {
 		stmt_free(stmt->as.for_.step);
 		expr_free(stmt->as.for_.cond);
 		stmt_free(stmt->as.for_.body);
+		break;
+
+	case STMT_TYPE_RETURN:
+		expr_free(stmt->as.return_.expr);
+		break;
+
+	case STMT_TYPE_DEFER:
+		stmt_free(stmt->as.defer.stmt);
 		break;
 
 	default: break;

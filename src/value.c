@@ -5,9 +5,10 @@ static const char *value_type_to_cstr_map[] = {
 	[VALUE_TYPE_STR]  = "string",
 	[VALUE_TYPE_NUM]  = "number",
 	[VALUE_TYPE_BOOL] = "boolean",
+	[VALUE_TYPE_FUN]  = "function",
 };
 
-static_assert(VALUE_TYPE_COUNT == 4); /* Add the new value type to the map */
+static_assert(VALUE_TYPE_COUNT == 5); /* Add the new value type to the map */
 
 const char *value_type_to_cstr(value_type_t type) {
 	if (type >= VALUE_TYPE_COUNT)
@@ -30,6 +31,10 @@ value_t value_bool(bool val) {
 
 value_t value_str(char *val) {
 	return (value_t){.type = VALUE_TYPE_STR, .as = {.str = val}};
+}
+
+value_t value_fun(void *val) {
+	return (value_t){.type = VALUE_TYPE_FUN, .as = {.fun = val}};
 }
 
 void value_free(value_t *val) {

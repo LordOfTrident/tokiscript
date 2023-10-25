@@ -1,0 +1,8 @@
+# TODO: Maybe allow this shortcut?
+# fun add(a, b)
+# 	return a + b
+# end
+
+let add = fun(a, b)
+	return a + b
+end

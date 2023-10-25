@@ -53,6 +53,8 @@ static const char *token_type_to_keyword_map[TOKEN_TYPE_COUNT] = {
 	[TOKEN_TYPE_END]    = "end",
 	[TOKEN_TYPE_DO]     = "do",
 	[TOKEN_TYPE_RETURN] = "return",
+	[TOKEN_TYPE_DEFER]  = "defer",
+	[TOKEN_TYPE_FUN]    = "fun",
 };
 
 static token_t lex_id(lexer_t *l) {

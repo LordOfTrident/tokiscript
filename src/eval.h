@@ -16,12 +16,16 @@ typedef struct {
 	value_t val;
 } var_t;
 
-#define VARS_CHUNK 32
-#define MAX_NEST   64
+#define VARS_CHUNK  32
+#define DEFER_CHUNK 8
+#define MAX_NEST    64
 
 typedef struct {
 	var_t *vars;
 	size_t vars_count, vars_cap;
+
+	stmt_t **defer;
+	size_t   defer_count, defer_cap;
 } scope_t;
 
 typedef struct {

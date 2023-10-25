@@ -14,6 +14,7 @@ typedef struct expr_call   expr_call_t;
 typedef struct expr_id     expr_id_t;
 typedef struct expr_bin_op expr_bin_op_t;
 typedef struct expr_do     expr_do_t;
+typedef struct expr_fun    expr_fun_t;
 
 typedef struct stmt        stmt_t;
 typedef struct stmt_let    stmt_let_t;
@@ -21,6 +22,7 @@ typedef struct stmt_if     stmt_if_t;
 typedef struct stmt_while  stmt_while_t;
 typedef struct stmt_for    stmt_for_t;
 typedef struct stmt_return stmt_return_t;
+typedef struct stmt_defer  stmt_defer_t;
 
 typedef enum {
 	EXPR_TYPE_VALUE = 0,
@@ -28,6 +30,7 @@ typedef enum {
 	EXPR_TYPE_ID,
 	EXPR_TYPE_BIN_OP,
 	EXPR_TYPE_DO,
+	EXPR_TYPE_FUN,
 
 	EXPR_TYPE_COUNT,
 } expr_type_t;
@@ -35,8 +38,7 @@ typedef enum {
 #define CALL_ARGS_CAPACITY 32
 
 struct expr_call {
-	char *name;
-
+	char   *name;
 	expr_t *args[32];
 	size_t  args_count;
 };
@@ -78,6 +80,12 @@ struct expr_do {
 	stmt_t *body;
 };
 
+struct expr_fun {
+	char   *args[32];
+	size_t  args_count;
+	stmt_t *body;
+};
+
 struct expr {
 	where_t     where;
 	expr_type_t type;
@@ -88,10 +96,11 @@ struct expr {
 		expr_id_t     id;
 		expr_bin_op_t bin_op;
 		expr_do_t     do_;
+		expr_fun_t    fun;
 	} as;
 };
 
-static_assert(EXPR_TYPE_COUNT == 5); /* Add new expressions to union */
+static_assert(EXPR_TYPE_COUNT == 6); /* Add new expressions to union */
 
 typedef enum {
 	STMT_TYPE_EXPR = 0,
@@ -100,34 +109,39 @@ typedef enum {
 	STMT_TYPE_WHILE,
 	STMT_TYPE_FOR,
 	STMT_TYPE_RETURN,
+	STMT_TYPE_DEFER,
 
 	STMT_TYPE_COUNT,
 } stmt_type_t;
 
-typedef struct stmt_let {
+struct stmt_let {
 	char   *name;
 	expr_t *val;
-} stmt_let_t;
+};
 
-typedef struct stmt_if {
+struct stmt_if {
 	expr_t *cond;
 	stmt_t *body, *else_, *next;
-} stmt_if_t;
+};
 
-typedef struct stmt_while {
+struct stmt_while {
 	expr_t *cond;
 	stmt_t *body;
-} stmt_while_t;
+};
 
-typedef struct stmt_for {
+struct stmt_for {
 	expr_t *cond;
 	stmt_t *init, *step;
 	stmt_t *body;
-} stmt_for_t;
+};
 
-typedef struct stmt_return {
+struct stmt_return {
 	expr_t *expr;
-} stmt_return_t;
+};
+
+struct stmt_defer {
+	stmt_t *stmt;
+};
 
 struct stmt {
 	where_t     where;
@@ -140,12 +154,13 @@ struct stmt {
 		stmt_while_t  while_;
 		stmt_for_t    for_;
 		stmt_return_t return_;
+		stmt_defer_t  defer;
 	} as;
 
 	stmt_t *next;
 };
 
-static_assert(STMT_TYPE_COUNT == 6); /* Add new statements to union */
+static_assert(STMT_TYPE_COUNT == 7); /* Add new statements to union */
 
 expr_t *expr_new(void);
 void    expr_free(expr_t *expr);

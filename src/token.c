@@ -26,6 +26,8 @@ static const char *token_type_to_cstr_map[TOKEN_TYPE_COUNT] = {
 	[TOKEN_TYPE_ELIF]   = "elif",
 	[TOKEN_TYPE_DO]     = "do",
 	[TOKEN_TYPE_RETURN] = "return",
+	[TOKEN_TYPE_DEFER]  = "defer",
+	[TOKEN_TYPE_FUN]    = "fun",
 
 	[TOKEN_TYPE_INC]  = "++",
 	[TOKEN_TYPE_DEC]  = "--",
@@ -53,7 +55,7 @@ static const char *token_type_to_cstr_map[TOKEN_TYPE_COUNT] = {
 	[TOKEN_TYPE_ERR] = "error",
 };
 
-static_assert(TOKEN_TYPE_COUNT == 35); /* Add the new token type to the map */
+static_assert(TOKEN_TYPE_COUNT == 37); /* Add the new token type to the map */
 
 bool token_type_is_bin_op(token_type_t type) {
 	switch (type) {

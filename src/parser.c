@@ -91,13 +91,45 @@ static expr_t *parse_expr_bool(parser_t *p) {
 }
 
 static expr_t *parse_expr_do(parser_t *p) {
-	token_t tok = p->tok;
-	parser_skip(p);
+	expr_t *expr = expr_new();
+	expr->where  = p->tok.where;
+	expr->type   = EXPR_TYPE_DO;
 
-	expr_t *expr      = expr_new();
-	expr->where       = tok.where;
-	expr->type        = EXPR_TYPE_DO;
+	parser_skip(p);
 	expr->as.do_.body = parse_stmts(p);
+	return expr;
+}
+
+static expr_t *parse_expr_fun(parser_t *p) {
+	expr_t *expr = expr_new();
+	expr->where  = p->tok.where;
+	expr->type   = EXPR_TYPE_FUN;
+
+	parser_skip(p);
+	if (p->tok.type != TOKEN_TYPE_LPAREN)
+		error(p->tok.where, "Expected '(', got '%s'", token_type_to_cstr(p->tok.type));
+
+	parser_skip(p);
+	while (p->tok.type != TOKEN_TYPE_RPAREN) {
+		assert(expr->as.fun.args_count < CALL_ARGS_CAPACITY);
+
+		if (p->tok.type != TOKEN_TYPE_ID)
+			error(p->tok.where, "Expected argument name, got '%s'",
+			      token_type_to_cstr(p->tok.type));
+
+		expr->as.fun.args[expr->as.fun.args_count ++] = p->tok.data;
+
+		parser_skip(p);
+		if (p->tok.type == TOKEN_TYPE_RPAREN)
+			break;
+		else if (p->tok.type != TOKEN_TYPE_COMMA)
+			error(p->tok.where, "Expected ',', got '%s'", token_type_to_cstr(p->tok.type));
+
+		parser_skip(p);
+	}
+
+	parser_skip(p);
+	expr->as.fun.body = parse_stmts(p);
 	return expr;
 }
 
@@ -117,7 +149,8 @@ static expr_t *parse_expr_factor(parser_t *p) {
 		parser_skip(p);
 		return expr;
 
-	case TOKEN_TYPE_DO: return parse_expr_do(p);
+	case TOKEN_TYPE_DO:  return parse_expr_do(p);
+	case TOKEN_TYPE_FUN: return parse_expr_fun(p);
 	}
 
 	default: error(p->tok.where, "Unexpected token '%s'", token_type_to_cstr(p->tok.type));
@@ -405,6 +438,17 @@ static stmt_t *parse_stmt_return(parser_t *p) {
 	return stmt;
 }
 
+static stmt_t *parse_stmt_defer(parser_t *p) {
+	stmt_t *stmt = stmt_new();
+	stmt->type   = STMT_TYPE_DEFER;
+	stmt->where  = p->tok.where;
+
+	parser_skip(p);
+	stmt->as.defer.stmt = parse_stmt(p);
+
+	return stmt;
+}
+
 static stmt_t *parse_stmt(parser_t *p) {
 	switch (p->tok.type) {
 	case TOKEN_TYPE_LET:    return parse_stmt_let(p);
@@ -412,6 +456,7 @@ static stmt_t *parse_stmt(parser_t *p) {
 	case TOKEN_TYPE_WHILE:  return parse_stmt_while(p);
 	case TOKEN_TYPE_FOR:    return parse_stmt_for(p);
 	case TOKEN_TYPE_RETURN: return parse_stmt_return(p);
+	case TOKEN_TYPE_DEFER:  return parse_stmt_defer(p);
 
 	default: return parse_stmt_expr(p);
 	}

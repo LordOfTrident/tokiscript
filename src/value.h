@@ -12,6 +12,7 @@ typedef enum {
 	VALUE_TYPE_NUM,
 	VALUE_TYPE_STR,
 	VALUE_TYPE_BOOL,
+	VALUE_TYPE_FUN,
 
 	VALUE_TYPE_COUNT,
 } value_type_t;
@@ -25,16 +26,18 @@ typedef struct {
 		double num;
 		char  *str;
 		bool   bool_;
+		void  *fun;
 	} as;
 } value_t;
 
-static_assert(VALUE_TYPE_COUNT == 4); /* Add new values to union */
+static_assert(VALUE_TYPE_COUNT == 5); /* Add new values to union */
 
 value_t value_nil(void);
 
 value_t value_num( double val);
 value_t value_bool(bool   val);
 value_t value_str( char  *val);
+value_t value_fun( void  *val);
 
 void value_free(value_t *val);
 

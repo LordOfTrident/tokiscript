@@ -14,9 +14,20 @@ static void env_scope_begin(env_t *e) {
 		if (e->scope->vars == NULL)
 			UNREACHABLE("malloc() fail");
 	}
+
+	e->scope->defer_count = 0;
+	if (e->scope->defer == NULL) {
+		e->scope->defer_cap = DEFER_CHUNK;
+		e->scope->defer     = (stmt_t**)malloc(e->scope->defer_cap * sizeof(stmt_t*));
+		if (e->scope->defer == NULL)
+			UNREACHABLE("malloc() fail");
+	}
 }
 
 static void env_scope_end(env_t *e) {
+	for (size_t i = e->scope->defer_count; i --> 0;)
+		eval(e, e->scope->defer[i]);
+
 	-- e->scope;
 }
 
@@ -30,6 +41,9 @@ void env_deinit(env_t *e) {
 	for (size_t i = 0; i < MAX_NEST; ++ i) {
 		if (e->scopes[i].vars != NULL)
 			free(e->scopes[i].vars);
+
+		if (e->scopes[i].defer != NULL)
+			free(e->scopes[i].defer);
 	}
 }
 
@@ -119,13 +133,13 @@ static value_t builtin_readnum(env_t *e, expr_t *expr) {
 	char buf[1024] = {0};
 	{
 		char *_ = fgets(buf, sizeof(buf), stdin);
-		(void)_;
+		UNUSED(_);
 	}
 
 	double val = 0;
 	{
 		int _ = sscanf(buf, "%lf", &val);
-		(void)_;
+		UNUSED(_);
 	}
 
 	return value_num(val);
@@ -246,6 +260,12 @@ static value_t eval_expr_do(env_t *e, expr_t *expr) {
 
 	env_scope_end(e);
 	return value;
+}
+
+static value_t eval_expr_fun(env_t *e, expr_t *expr) {
+	UNUSED(e);
+	expr_fun_t *fun = &expr->as.fun;
+	return value_fun(fun);
 }
 
 static value_t eval_expr_value(env_t *e, expr_t *expr) {
@@ -586,6 +606,7 @@ static value_t eval_expr(env_t *e, expr_t *expr) {
 	case EXPR_TYPE_CALL:   return eval_expr_call(  e, expr);
 	case EXPR_TYPE_ID:     return eval_expr_id(    e, expr);
 	case EXPR_TYPE_DO:     return eval_expr_do(    e, expr);
+	case EXPR_TYPE_FUN:    return eval_expr_fun(   e, expr);
 	case EXPR_TYPE_VALUE:  return eval_expr_value( e, expr);
 	case EXPR_TYPE_BIN_OP: return eval_expr_bin_op(e, expr);
 
@@ -608,10 +629,12 @@ static void eval_stmt_let(env_t *e, stmt_t *stmt) {
 	}
 
 	if (idx == (size_t)-1) {
-		e->scope->vars_cap *= 2;
-		e->scope->vars      = (var_t*)realloc(e->scope->vars, e->scope->vars_cap * sizeof(var_t));
-		if (e->scope->vars == NULL)
-			UNREACHABLE("realloc() fail");
+		if (e->scope->vars_count >= e->scope->vars_cap) {
+			e->scope->vars_cap *= 2;
+			e->scope->vars = (var_t*)realloc(e->scope->vars, e->scope->vars_cap * sizeof(var_t));
+			if (e->scope->vars == NULL)
+				UNREACHABLE("realloc() fail");
+		}
 
 		idx = e->scope->vars_count ++;
 	}
@@ -699,6 +722,19 @@ static void eval_stmt_return(env_t *e, stmt_t *stmt) {
 	e->returning = true;
 }
 
+static void eval_stmt_defer(env_t *e, stmt_t *stmt) {
+	stmt_defer_t *defer = &stmt->as.defer;
+
+	if (e->scope->defer_count >= e->scope->defer_cap) {
+		e->scope->defer_cap *= 2;
+		e->scope->defer = (stmt_t**)realloc(e->scope->defer, e->scope->defer_cap * sizeof(stmt_t*));
+		if (e->scope->defer == NULL)
+			UNREACHABLE("realloc() fail");
+	}
+
+	e->scope->defer[e->scope->defer_count ++] = defer->stmt;
+}
+
 void eval(env_t *e, stmt_t *program) {
 	for (stmt_t *stmt = program; stmt != NULL; stmt = stmt->next) {
 		switch (stmt->type) {
@@ -708,6 +744,7 @@ void eval(env_t *e, stmt_t *program) {
 		case STMT_TYPE_WHILE:  eval_stmt_while( e, stmt);          break;
 		case STMT_TYPE_FOR:    eval_stmt_for(   e, stmt);          break;
 		case STMT_TYPE_RETURN: eval_stmt_return(e, stmt);          return;
+		case STMT_TYPE_DEFER:  eval_stmt_defer( e, stmt);          break;
 
 		default: UNREACHABLE("Unknown statement type");
 		}
