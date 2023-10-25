@@ -14,7 +14,7 @@
 #define INSTALL "tokiscript"
 
 #define CARGS "-O2", "-std=c11", "-Wall", "-Wextra", "-Werror", "-pedantic", \
-              "-Wno-deprecated-declarations", "-I./"
+              "-Wno-deprecated-declarations", "-I./", "-g"
 #define CLIBS "-lm"
 
 #define INSTALL_DIR "/usr/bin"

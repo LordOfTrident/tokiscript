@@ -79,5 +79,6 @@ int main(int argc, const char **argv) {
 		stmt_free(program);
 	});
 
+	free(stripped.base);
 	return EXIT_SUCCESS;
 }

@@ -61,6 +61,8 @@ void stmt_free(stmt_t *stmt) {
 	case STMT_TYPE_IF:
 		expr_free(stmt->as.if_.cond);
 		stmt_free(stmt->as.if_.body);
+		stmt_free(stmt->as.if_.else_);
+		stmt_free(stmt->as.if_.next);
 		break;
 
 	default: break;

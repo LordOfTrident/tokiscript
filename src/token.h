@@ -47,7 +47,8 @@ typedef enum {
 
 const char *token_type_to_cstr(token_type_t type);
 
-bool token_type_is_bin_op(token_type_t type);
+bool token_type_is_bin_op(   token_type_t type);
+bool token_type_is_stmts_end(token_type_t type);
 
 typedef struct {
 	const char *path;

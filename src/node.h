@@ -96,7 +96,7 @@ typedef struct stmt_let {
 
 typedef struct stmt_if {
 	expr_t *cond;
-	stmt_t *body;
+	stmt_t *body, *else_, *next;
 } stmt_if_t;
 
 struct stmt {

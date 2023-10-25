@@ -12,6 +12,11 @@ println(5 == 5) # true
 println(5 == 7) # false
 println(5 /= 7) # true
 
+println(5  >  10) # false
+println(5  <  10) # true
+println(10 <  10) # false
+println(10 <= 10) # true
+
 println()
 
 println(true == true)  # true

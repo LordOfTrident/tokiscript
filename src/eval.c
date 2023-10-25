@@ -125,6 +125,70 @@ static value_t eval_expr_bin_op_not_equals(env_t *e, expr_t *expr) {
 	return val;
 }
 
+static value_t eval_expr_bin_op_greater(env_t *e, expr_t *expr) {
+	expr_bin_op_t *bin_op = &expr->as.bin_op;
+
+	value_t left  = eval_expr(e, bin_op->left);
+	value_t right = eval_expr(e, bin_op->right);
+
+	if (right.type != left.type)
+		wrong_type(expr->where, left.type,
+		           "right side of '>' operation, expected same as left side");
+
+	if (left.type != VALUE_TYPE_NUM)
+		wrong_type(expr->where, left.type, "left side of '>' operation");
+
+	return value_bool(left.as.num > right.as.num);
+}
+
+static value_t eval_expr_bin_op_greater_equ(env_t *e, expr_t *expr) {
+	expr_bin_op_t *bin_op = &expr->as.bin_op;
+
+	value_t left  = eval_expr(e, bin_op->left);
+	value_t right = eval_expr(e, bin_op->right);
+
+	if (right.type != left.type)
+		wrong_type(expr->where, left.type,
+		           "right side of '>=' operation, expected same as left side");
+
+	if (left.type != VALUE_TYPE_NUM)
+		wrong_type(expr->where, left.type, "left side of '>=' operation");
+
+	return value_bool(left.as.num >= right.as.num);
+}
+
+static value_t eval_expr_bin_op_less(env_t *e, expr_t *expr) {
+	expr_bin_op_t *bin_op = &expr->as.bin_op;
+
+	value_t left  = eval_expr(e, bin_op->left);
+	value_t right = eval_expr(e, bin_op->right);
+
+	if (right.type != left.type)
+		wrong_type(expr->where, left.type,
+		           "right side of '<' operation, expected same as left side");
+
+	if (left.type != VALUE_TYPE_NUM)
+		wrong_type(expr->where, left.type, "left side of '<' operation");
+
+	return value_bool(left.as.num < right.as.num);
+}
+
+static value_t eval_expr_bin_op_less_equ(env_t *e, expr_t *expr) {
+	expr_bin_op_t *bin_op = &expr->as.bin_op;
+
+	value_t left  = eval_expr(e, bin_op->left);
+	value_t right = eval_expr(e, bin_op->right);
+
+	if (right.type != left.type)
+		wrong_type(expr->where, left.type,
+		           "right side of '<=' operation, expected same as left side");
+
+	if (left.type != VALUE_TYPE_NUM)
+		wrong_type(expr->where, left.type, "left side of '<=' operation");
+
+	return value_bool(left.as.num <= right.as.num);
+}
+
 static value_t eval_expr_bin_op_assign(env_t *e, expr_t *expr) {
 	expr_bin_op_t *bin_op = &expr->as.bin_op;
 
@@ -332,8 +396,12 @@ static value_t eval_expr_bin_op_pow(env_t *e, expr_t *expr) {
 
 static value_t eval_expr_bin_op(env_t *e, expr_t *expr) {
 	switch (expr->as.bin_op.type) {
-	case BIN_OP_EQUALS:     return eval_expr_bin_op_equals(    e, expr);
-	case BIN_OP_NOT_EQUALS: return eval_expr_bin_op_not_equals(e, expr);
+	case BIN_OP_EQUALS:      return eval_expr_bin_op_equals(     e, expr);
+	case BIN_OP_NOT_EQUALS:  return eval_expr_bin_op_not_equals( e, expr);
+	case BIN_OP_GREATER:     return eval_expr_bin_op_greater(    e, expr);
+	case BIN_OP_GREATER_EQU: return eval_expr_bin_op_greater_equ(e, expr);
+	case BIN_OP_LESS:        return eval_expr_bin_op_less(       e, expr);
+	case BIN_OP_LESS_EQU:    return eval_expr_bin_op_less_equ(   e, expr);
 
 	case BIN_OP_ASSIGN: return eval_expr_bin_op_assign(e, expr);
 
@@ -388,6 +456,10 @@ static void eval_stmt_if(env_t *e, stmt_t *stmt) {
 
 	if (cond.as.bool_)
 		eval(e, if_->body);
+	else if (if_->next != NULL)
+		eval_stmt_if(e, if_->next);
+	else
+		eval(e, if_->else_);
 }
 
 void eval(env_t *e, stmt_t *program) {

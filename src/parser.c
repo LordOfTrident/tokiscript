@@ -278,7 +278,7 @@ static stmt_t *parse_stmts(parser_t *p) {
 	where_t start = p->tok.where;
 
 	stmt_t *stmts = NULL, *last = NULL;
-	while (p->tok.type != TOKEN_TYPE_END) {
+	while (!token_type_is_stmts_end(p->tok.type)) {
 		if (p->tok.type == TOKEN_TYPE_EOF) {
 			from(start);
 			error(p->tok.where, "Expected 'end', got '%s'", token_type_to_cstr(p->tok.type));
@@ -294,7 +294,9 @@ static stmt_t *parse_stmts(parser_t *p) {
 		}
 	}
 
-	parser_skip(p);
+	if (p->tok.type == TOKEN_TYPE_END)
+		parser_skip(p);
+
 	return stmts;
 }
 
@@ -306,6 +308,13 @@ static stmt_t *parse_stmt_if(parser_t *p) {
 	parser_skip(p);
 	stmt->as.if_.cond = parse_expr(p);
 	stmt->as.if_.body = parse_stmts(p);
+
+	if (p->tok.type == TOKEN_TYPE_ELIF)
+		stmt->as.if_.next = parse_stmt_if(p);
+	else if (p->tok.type == TOKEN_TYPE_ELSE) {
+		parser_skip(p);
+		stmt->as.if_.else_ = parse_stmts(p);
+	}
 
 	return stmt;
 }

@@ -63,6 +63,10 @@ bool token_type_is_bin_op(token_type_t type) {
 	}
 }
 
+bool token_type_is_stmts_end(token_type_t type) {
+	return type == TOKEN_TYPE_END || type == TOKEN_TYPE_ELSE || type == TOKEN_TYPE_ELIF;
+}
+
 const char *token_type_to_cstr(token_type_t type) {
 	if (type >= TOKEN_TYPE_COUNT)
 		UNREACHABLE("Invalid token type");
