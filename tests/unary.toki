@@ -1,0 +1,10 @@
+let a = 10, b = -10
+
+if not (a + b /= 0)
+	println("a")
+else
+	println("b")
+end
+
+println(-b)
+println(+b)

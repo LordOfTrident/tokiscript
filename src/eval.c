@@ -280,21 +280,19 @@ static value_t eval_expr_bin_op_equals(env_t *e, expr_t *expr) {
 	value_t right = eval_expr(e, bin_op->right);
 
 	if (right.type != left.type)
-		wrong_type(expr->where, left.type,
-		           "right side of '==' operation, expected same as left side");
-
-	value_t result;
-	result.type = VALUE_TYPE_BOOL;
+		return value_bool(false);
 
 	switch (left.type) {
-	case VALUE_TYPE_NUM:  result.as.bool_ = left.as.num   == right.as.num;          break;
-	case VALUE_TYPE_BOOL: result.as.bool_ = left.as.bool_ == right.as.bool_;        break;
-	case VALUE_TYPE_STR:  result.as.bool_ = strcmp(left.as.str, right.as.str) == 0; break;
+	case VALUE_TYPE_NUM:  return value_bool(left.as.num   == right.as.num);
+	case VALUE_TYPE_BOOL: return value_bool(left.as.bool_ == right.as.bool_);
+	case VALUE_TYPE_STR:  return value_bool(strcmp(left.as.str, right.as.str) == 0);
+	case VALUE_TYPE_NIL:  return value_bool(true);
+	case VALUE_TYPE_FUN:  return value_bool(left.as.fun == right.as.fun);
 
 	default: wrong_type(expr->where, left.type, "left side of '==' operation");
 	}
 
-	return result;
+	return value_nil();
 }
 
 static value_t eval_expr_bin_op_not_equals(env_t *e, expr_t *expr) {
@@ -576,6 +574,38 @@ static value_t eval_expr_bin_op_pow(env_t *e, expr_t *expr) {
 	return left;
 }
 
+static value_t eval_expr_bin_op_and(env_t *e, expr_t *expr) {
+	expr_bin_op_t *bin_op = &expr->as.bin_op;
+
+	value_t left  = eval_expr(e, bin_op->left);
+	value_t right = eval_expr(e, bin_op->right);
+
+	if (left.type != VALUE_TYPE_BOOL)
+		wrong_type(expr->where, left.type, "left side of 'and' operation");
+	else if (right.type != VALUE_TYPE_BOOL)
+		wrong_type(expr->where, right.type,
+		           "right side of 'and' operation, expected same as left side");
+
+	left.as.bool_ = left.as.bool_ && right.as.bool_;
+	return left;
+}
+
+static value_t eval_expr_bin_op_or(env_t *e, expr_t *expr) {
+	expr_bin_op_t *bin_op = &expr->as.bin_op;
+
+	value_t left  = eval_expr(e, bin_op->left);
+	value_t right = eval_expr(e, bin_op->right);
+
+	if (left.type != VALUE_TYPE_BOOL)
+		wrong_type(expr->where, left.type, "left side of 'or' operation");
+	else if (right.type != VALUE_TYPE_BOOL)
+		wrong_type(expr->where, right.type,
+		           "right side of 'or' operation, expected same as left side");
+
+	left.as.bool_ = left.as.bool_ || right.as.bool_;
+	return left;
+}
+
 static value_t eval_expr_bin_op(env_t *e, expr_t *expr) {
 	switch (expr->as.bin_op.type) {
 	case BIN_OP_EQUALS:      return eval_expr_bin_op_equals(     e, expr);
@@ -584,6 +614,9 @@ static value_t eval_expr_bin_op(env_t *e, expr_t *expr) {
 	case BIN_OP_GREATER_EQU: return eval_expr_bin_op_greater_equ(e, expr);
 	case BIN_OP_LESS:        return eval_expr_bin_op_less(       e, expr);
 	case BIN_OP_LESS_EQU:    return eval_expr_bin_op_less_equ(   e, expr);
+
+	case BIN_OP_AND: return eval_expr_bin_op_and(e, expr);
+	case BIN_OP_OR:  return eval_expr_bin_op_or( e, expr);
 
 	case BIN_OP_ASSIGN: return eval_expr_bin_op_assign(e, expr);
 	case BIN_OP_INC:    return eval_expr_bin_op_inc(   e, expr);
@@ -601,6 +634,46 @@ static value_t eval_expr_bin_op(env_t *e, expr_t *expr) {
 	}
 }
 
+static value_t eval_expr_un_op_pos(env_t *e, expr_t *expr) {
+	expr_un_op_t *un_op = &expr->as.un_op;
+
+	value_t val = eval_expr(e, un_op->expr);
+	if (val.type != VALUE_TYPE_NUM)
+		wrong_type(expr->where, val.type, "'+' unary operation");
+
+	return val;
+}
+
+static value_t eval_expr_un_op_neg(env_t *e, expr_t *expr) {
+	expr_un_op_t *un_op = &expr->as.un_op;
+
+	value_t val = eval_expr(e, un_op->expr);
+	if (val.type != VALUE_TYPE_NUM)
+		wrong_type(expr->where, val.type, "'-' unary operation");
+
+	return value_num(-val.as.num);
+}
+
+static value_t eval_expr_un_op_not(env_t *e, expr_t *expr) {
+	expr_un_op_t *un_op = &expr->as.un_op;
+
+	value_t val = eval_expr(e, un_op->expr);
+	if (val.type != VALUE_TYPE_BOOL)
+		wrong_type(expr->where, val.type, "'not' operation");
+
+	return value_bool(!val.as.bool_);
+}
+
+static value_t eval_expr_un_op(env_t *e, expr_t *expr) {
+	switch (expr->as.un_op.type) {
+	case UN_OP_POS: return eval_expr_un_op_pos(e, expr);
+	case UN_OP_NEG: return eval_expr_un_op_neg(e, expr);
+	case UN_OP_NOT: return eval_expr_un_op_not(e, expr);
+
+	default: UNREACHABLE("Unknown unary operation type");
+	}
+}
+
 static value_t eval_expr(env_t *e, expr_t *expr) {
 	switch (expr->type) {
 	case EXPR_TYPE_CALL:   return eval_expr_call(  e, expr);
@@ -609,6 +682,7 @@ static value_t eval_expr(env_t *e, expr_t *expr) {
 	case EXPR_TYPE_FUN:    return eval_expr_fun(   e, expr);
 	case EXPR_TYPE_VALUE:  return eval_expr_value( e, expr);
 	case EXPR_TYPE_BIN_OP: return eval_expr_bin_op(e, expr);
+	case EXPR_TYPE_UN_OP:  return eval_expr_un_op( e, expr);
 
 	default: UNREACHABLE("Unknown expression type");
 	}
@@ -640,7 +714,10 @@ static void eval_stmt_let(env_t *e, stmt_t *stmt) {
 	}
 
 	e->scope->vars[idx].name = let->name;
-	e->scope->vars[idx].val  = eval_expr(e, let->val);
+	e->scope->vars[idx].val  = let->val == NULL? value_nil() : eval_expr(e, let->val);
+
+	if (let->next != NULL)
+		eval_stmt_let(e, let->next);
 }
 
 static void eval_stmt_if(env_t *e, stmt_t *stmt) {

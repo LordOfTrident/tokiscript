@@ -1,0 +1,14 @@
+let a = 0, b
+let test = nil
+
+if a == test
+	println("a is nil")
+else
+	println("a is not nil")
+end
+
+if b == test
+	println("b is nil")
+else
+	println("b is not nil")
+end

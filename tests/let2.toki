@@ -1,0 +1,4 @@
+println(do
+	let a = readnum("a:"), b = readnum("b:")
+	return a + b
+end)

@@ -13,6 +13,7 @@ typedef struct expr        expr_t;
 typedef struct expr_call   expr_call_t;
 typedef struct expr_id     expr_id_t;
 typedef struct expr_bin_op expr_bin_op_t;
+typedef struct expr_un_op  expr_un_op_t;
 typedef struct expr_do     expr_do_t;
 typedef struct expr_fun    expr_fun_t;
 
@@ -29,6 +30,7 @@ typedef enum {
 	EXPR_TYPE_CALL,
 	EXPR_TYPE_ID,
 	EXPR_TYPE_BIN_OP,
+	EXPR_TYPE_UN_OP,
 	EXPR_TYPE_DO,
 	EXPR_TYPE_FUN,
 
@@ -67,6 +69,9 @@ typedef enum {
 	BIN_OP_LESS,
 	BIN_OP_LESS_EQU,
 
+	BIN_OP_AND,
+	BIN_OP_OR,
+
 	BIN_OP_TYPE_COUNT,
 } bin_op_type_t;
 
@@ -74,6 +79,20 @@ struct expr_bin_op {
 	bin_op_type_t type;
 
 	expr_t *left, *right;
+};
+
+typedef enum {
+	UN_OP_POS = 0,
+	UN_OP_NEG,
+	UN_OP_NOT,
+
+	UN_OP_TYPE_COUNT,
+} un_op_type_t;
+
+struct expr_un_op {
+	un_op_type_t type;
+
+	expr_t *expr;
 };
 
 struct expr_do {
@@ -95,12 +114,13 @@ struct expr {
 		expr_call_t   call;
 		expr_id_t     id;
 		expr_bin_op_t bin_op;
+		expr_un_op_t  un_op;
 		expr_do_t     do_;
 		expr_fun_t    fun;
 	} as;
 };
 
-static_assert(EXPR_TYPE_COUNT == 6); /* Add new expressions to union */
+static_assert(EXPR_TYPE_COUNT == 7); /* Add new expressions to union */
 
 typedef enum {
 	STMT_TYPE_EXPR = 0,
@@ -117,6 +137,7 @@ typedef enum {
 struct stmt_let {
 	char   *name;
 	expr_t *val;
+	stmt_t *next;
 };
 
 struct stmt_if {

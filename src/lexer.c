@@ -42,6 +42,7 @@ static token_t lex_simple_sym(lexer_t *l, token_type_t type) {
 }
 
 static const char *token_type_to_keyword_map[TOKEN_TYPE_COUNT] = {
+	[TOKEN_TYPE_NIL]    = "nil",
 	[TOKEN_TYPE_TRUE]   = "true",
 	[TOKEN_TYPE_FALSE]  = "false",
 	[TOKEN_TYPE_LET]    = "let",
@@ -55,6 +56,9 @@ static const char *token_type_to_keyword_map[TOKEN_TYPE_COUNT] = {
 	[TOKEN_TYPE_RETURN] = "return",
 	[TOKEN_TYPE_DEFER]  = "defer",
 	[TOKEN_TYPE_FUN]    = "fun",
+	[TOKEN_TYPE_AND]    = "and",
+	[TOKEN_TYPE_OR]     = "or",
+	[TOKEN_TYPE_NOT]    = "not",
 };
 
 static token_t lex_id(lexer_t *l) {

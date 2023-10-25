@@ -13,6 +13,7 @@ static const char *token_type_to_cstr_map[TOKEN_TYPE_COUNT] = {
 	[TOKEN_TYPE_ID]  = "identifier",
 	[TOKEN_TYPE_STR] = "string",
 	[TOKEN_TYPE_NUM] = "decimal number",
+	[TOKEN_TYPE_NIL] = "nil",
 
 	[TOKEN_TYPE_TRUE]  = "true",
 	[TOKEN_TYPE_FALSE] = "false",
@@ -48,6 +49,10 @@ static const char *token_type_to_cstr_map[TOKEN_TYPE_COUNT] = {
 	[TOKEN_TYPE_LESS]        = "<",
 	[TOKEN_TYPE_LESS_EQU]    = "<=",
 
+	[TOKEN_TYPE_AND] = "and",
+	[TOKEN_TYPE_OR]  = "or",
+	[TOKEN_TYPE_NOT] = "not",
+
 	[TOKEN_TYPE_LPAREN] = "(",
 	[TOKEN_TYPE_RPAREN] = ")",
 	[TOKEN_TYPE_COMMA]  = ",",
@@ -55,7 +60,7 @@ static const char *token_type_to_cstr_map[TOKEN_TYPE_COUNT] = {
 	[TOKEN_TYPE_ERR] = "error",
 };
 
-static_assert(TOKEN_TYPE_COUNT == 37); /* Add the new token type to the map */
+static_assert(TOKEN_TYPE_COUNT == 41); /* Add the new token type to the map */
 
 bool token_type_is_bin_op(token_type_t type) {
 	switch (type) {
@@ -68,7 +73,10 @@ bool token_type_is_bin_op(token_type_t type) {
 	case TOKEN_TYPE_NOT_EQUALS:
 	case TOKEN_TYPE_GREATER:
 	case TOKEN_TYPE_GREATER_EQU:
-	case TOKEN_TYPE_LESS: return true;
+	case TOKEN_TYPE_LESS:
+
+	case TOKEN_TYPE_AND:
+	case TOKEN_TYPE_OR: return true;
 
 	default: return false;
 	}
