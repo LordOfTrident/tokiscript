@@ -47,6 +47,7 @@ static const char *token_type_to_keyword_map[TOKEN_TYPE_COUNT] = {
 	[TOKEN_TYPE_LET]   = "let",
 	[TOKEN_TYPE_IF]    = "if",
 	[TOKEN_TYPE_WHILE] = "while",
+	[TOKEN_TYPE_FOR]   = "for",
 	[TOKEN_TYPE_ELIF]  = "elif",
 	[TOKEN_TYPE_ELSE]  = "else",
 	[TOKEN_TYPE_END]   = "end",
@@ -118,7 +119,7 @@ static token_t lex_str(lexer_t *l) {
 	return token_new(strcpy_to_heap(l->tok), TOKEN_TYPE_STR, start);
 }
 
-static token_t lex_dec(lexer_t *l) {
+static token_t lex_num(lexer_t *l) {
 	where_t start = l->where;
 
 	bool floating_point = false;
@@ -134,7 +135,7 @@ static token_t lex_dec(lexer_t *l) {
 		lexer_tok_append(l, l->ch);
 	}
 
-	return token_new(strcpy_to_heap(l->tok), TOKEN_TYPE_DEC, start);
+	return token_new(strcpy_to_heap(l->tok), TOKEN_TYPE_NUM, start);
 }
 
 static token_t lex_greater(lexer_t *l) {
@@ -178,6 +179,11 @@ static token_t lex_slash(lexer_t *l) {
 		lexer_advance(l);
 
 		return token_new(strcpy_to_heap(l->tok), TOKEN_TYPE_NOT_EQUALS, start);
+	} else if (l->ch == '/') {
+		lexer_tok_append(l, l->ch);
+		lexer_advance(l);
+
+		return token_new(strcpy_to_heap(l->tok), TOKEN_TYPE_XDEC, start);
 	} else
 		return token_new(strcpy_to_heap(l->tok), TOKEN_TYPE_DIV, start);
 }
@@ -197,6 +203,51 @@ static token_t lex_equals(lexer_t *l) {
 		return token_new(strcpy_to_heap(l->tok), TOKEN_TYPE_ASSIGN, start);
 }
 
+static token_t lex_add(lexer_t *l) {
+	where_t start = l->where;
+
+	lexer_tok_append(l, l->ch);
+	lexer_advance(l);
+
+	if (l->ch == '+') {
+		lexer_tok_append(l, l->ch);
+		lexer_advance(l);
+
+		return token_new(strcpy_to_heap(l->tok), TOKEN_TYPE_INC, start);
+	} else
+		return token_new(strcpy_to_heap(l->tok), TOKEN_TYPE_ADD, start);
+}
+
+static token_t lex_sub(lexer_t *l) {
+	where_t start = l->where;
+
+	lexer_tok_append(l, l->ch);
+	lexer_advance(l);
+
+	if (l->ch == '-') {
+		lexer_tok_append(l, l->ch);
+		lexer_advance(l);
+
+		return token_new(strcpy_to_heap(l->tok), TOKEN_TYPE_DEC, start);
+	} else
+		return token_new(strcpy_to_heap(l->tok), TOKEN_TYPE_SUB, start);
+}
+
+static token_t lex_mul(lexer_t *l) {
+	where_t start = l->where;
+
+	lexer_tok_append(l, l->ch);
+	lexer_advance(l);
+
+	if (l->ch == '*') {
+		lexer_tok_append(l, l->ch);
+		lexer_advance(l);
+
+		return token_new(strcpy_to_heap(l->tok), TOKEN_TYPE_XINC, start);
+	} else
+		return token_new(strcpy_to_heap(l->tok), TOKEN_TYPE_MUL, start);
+}
+
 static void lexer_skip_comment(lexer_t *l) {
 	while (l->ch != '\n' && l->ch != EOF)
 		lexer_advance(l);
@@ -212,9 +263,9 @@ token_t lexer_next(lexer_t *l) {
 		case ')': return lex_simple_sym(l, TOKEN_TYPE_RPAREN);
 		case ',': return lex_simple_sym(l, TOKEN_TYPE_COMMA);
 
-		case '+': return lex_simple_sym(l, TOKEN_TYPE_ADD);
-		case '-': return lex_simple_sym(l, TOKEN_TYPE_SUB);
-		case '*': return lex_simple_sym(l, TOKEN_TYPE_MUL);
+		case '+': return lex_add(l);
+		case '-': return lex_sub(l);
+		case '*': return lex_mul(l);
 		case '^': return lex_simple_sym(l, TOKEN_TYPE_POW);
 
 		case '>': return lex_greater(l);
@@ -232,7 +283,7 @@ token_t lexer_next(lexer_t *l) {
 			else if (isalpha(l->ch) || l->ch == '_')
 				return lex_id(l);
 			else if (isdigit(l->ch))
-				return lex_dec(l);
+				return lex_num(l);
 			else
 				return token_new_err("Unexpected character", l->where);
 		}

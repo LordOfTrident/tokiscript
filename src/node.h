@@ -49,6 +49,10 @@ typedef enum {
 	BIN_OP_POW,
 
 	BIN_OP_ASSIGN,
+	BIN_OP_INC,
+	BIN_OP_DEC,
+	BIN_OP_XINC,
+	BIN_OP_XDEC,
 
 	BIN_OP_EQUALS,
 	BIN_OP_NOT_EQUALS,
@@ -62,7 +66,6 @@ typedef enum {
 
 struct expr_bin_op {
 	bin_op_type_t type;
-	bool          assign;
 
 	expr_t *left, *right;
 };
@@ -86,6 +89,7 @@ typedef enum {
 	STMT_TYPE_LET,
 	STMT_TYPE_IF,
 	STMT_TYPE_WHILE,
+	STMT_TYPE_FOR,
 
 	STMT_TYPE_COUNT,
 } stmt_type_t;
@@ -105,6 +109,17 @@ typedef struct stmt_while {
 	stmt_t *body;
 } stmt_while_t;
 
+typedef struct stmt_for {
+	expr_t *cond;
+	stmt_t *init, *step;
+	stmt_t *body;
+} stmt_for_t;
+
+typedef struct stmt_inc {
+	char   *name;
+	expr_t *by;
+} stmt_inc_t;
+
 struct stmt {
 	where_t     where;
 	stmt_type_t type;
@@ -114,12 +129,13 @@ struct stmt {
 		stmt_let_t   let;
 		stmt_if_t    if_;
 		stmt_while_t while_;
+		stmt_for_t   for_;
 	} as;
 
 	stmt_t *next;
 };
 
-static_assert(STMT_TYPE_COUNT == 4); /* Add new statements to union */
+static_assert(STMT_TYPE_COUNT == 5); /* Add new statements to union */
 
 expr_t *expr_new(void);
 void    expr_free(expr_t *expr);

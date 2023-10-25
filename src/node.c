@@ -70,6 +70,13 @@ void stmt_free(stmt_t *stmt) {
 		stmt_free(stmt->as.while_.body);
 		break;
 
+	case STMT_TYPE_FOR:
+		stmt_free(stmt->as.for_.init);
+		stmt_free(stmt->as.for_.step);
+		expr_free(stmt->as.for_.cond);
+		stmt_free(stmt->as.for_.body);
+		break;
+
 	default: break;
 	}
 
