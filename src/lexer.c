@@ -42,15 +42,17 @@ static token_t lex_simple_sym(lexer_t *l, token_type_t type) {
 }
 
 static const char *token_type_to_keyword_map[TOKEN_TYPE_COUNT] = {
-	[TOKEN_TYPE_TRUE]  = "true",
-	[TOKEN_TYPE_FALSE] = "false",
-	[TOKEN_TYPE_LET]   = "let",
-	[TOKEN_TYPE_IF]    = "if",
-	[TOKEN_TYPE_WHILE] = "while",
-	[TOKEN_TYPE_FOR]   = "for",
-	[TOKEN_TYPE_ELIF]  = "elif",
-	[TOKEN_TYPE_ELSE]  = "else",
-	[TOKEN_TYPE_END]   = "end",
+	[TOKEN_TYPE_TRUE]   = "true",
+	[TOKEN_TYPE_FALSE]  = "false",
+	[TOKEN_TYPE_LET]    = "let",
+	[TOKEN_TYPE_IF]     = "if",
+	[TOKEN_TYPE_WHILE]  = "while",
+	[TOKEN_TYPE_FOR]    = "for",
+	[TOKEN_TYPE_ELIF]   = "elif",
+	[TOKEN_TYPE_ELSE]   = "else",
+	[TOKEN_TYPE_END]    = "end",
+	[TOKEN_TYPE_DO]     = "do",
+	[TOKEN_TYPE_RETURN] = "return",
 };
 
 static token_t lex_id(lexer_t *l) {

@@ -1,0 +1,2 @@
+let ex = readnum("Type in the value to use as the exitcode:")
+exit(ex)

@@ -86,7 +86,6 @@ static value_t builtin_panic(env_t *e, expr_t *expr) {
 
 	fputc('\n', stderr);
 	exit(EXIT_FAILURE);
-	return value_nil();
 }
 
 static value_t builtin_len(env_t *e, expr_t *expr) {
@@ -172,6 +171,19 @@ static value_t builtin_readstr(env_t *e, expr_t *expr) {
 	return value_str(strcpy_to_heap(buf));
 }
 
+static value_t builtin_exit(env_t *e, expr_t *expr) {
+	expr_call_t *call = &expr->as.call;
+
+	if (call->args_count != 1)
+		wrong_arg_count(expr->where, call->args_count, 1);
+
+	value_t val = eval_expr(e, call->args[0]);
+	if (val.type != VALUE_TYPE_NUM)
+		wrong_type(expr->where, val.type, "'exit' function");
+
+	exit((int)val.as.num);
+}
+
 static builtin_t builtins[] = {
 	{.name = "println", .func = builtin_println},
 	{.name = "print",   .func = builtin_print},
@@ -179,6 +191,7 @@ static builtin_t builtins[] = {
 	{.name = "readnum", .func = builtin_readnum},
 	{.name = "readstr", .func = builtin_readstr},
 	{.name = "panic",   .func = builtin_panic},
+	{.name = "exit",    .func = builtin_exit},
 };
 
 static value_t eval_expr_call(env_t *e, expr_t *expr) {
@@ -211,6 +224,28 @@ static value_t eval_expr_id(env_t *e, expr_t *expr) {
 		undefined(expr->where, expr->as.id.name);
 
 	return var->val;
+}
+
+static value_t eval_with_return(env_t *e, stmt_t *stmt) {
+	++ e->returns;
+
+	e->return_ = value_nil();
+	eval(e, stmt);
+	if (e->returning)
+		e->returning = false;
+
+	-- e->returns;
+	return e->return_;
+}
+
+static value_t eval_expr_do(env_t *e, expr_t *expr) {
+	expr_do_t *do_ = &expr->as.do_;
+	env_scope_begin(e);
+
+	value_t value = eval_with_return(e, do_->body);
+
+	env_scope_end(e);
+	return value;
 }
 
 static value_t eval_expr_value(env_t *e, expr_t *expr) {
@@ -550,6 +585,7 @@ static value_t eval_expr(env_t *e, expr_t *expr) {
 	switch (expr->type) {
 	case EXPR_TYPE_CALL:   return eval_expr_call(  e, expr);
 	case EXPR_TYPE_ID:     return eval_expr_id(    e, expr);
+	case EXPR_TYPE_DO:     return eval_expr_do(    e, expr);
 	case EXPR_TYPE_VALUE:  return eval_expr_value( e, expr);
 	case EXPR_TYPE_BIN_OP: return eval_expr_bin_op(e, expr);
 
@@ -615,6 +651,9 @@ static void eval_stmt_while(env_t *e, stmt_t *stmt) {
 			eval(e, while_->body);
 		else
 			break;
+
+		if (e->returning)
+			break;
 	}
 
 	env_scope_end(e);
@@ -625,6 +664,9 @@ static void eval_stmt_for(env_t *e, stmt_t *stmt) {
 	env_scope_begin(e);
 
 	eval(e, for_->init);
+	if (e->returning)
+		error(stmt->where, "Unexpected return in for loop");
+
 	while (true) {
 		value_t cond = eval_expr(e, for_->cond);
 		if (cond.type != VALUE_TYPE_BOOL)
@@ -633,7 +675,13 @@ static void eval_stmt_for(env_t *e, stmt_t *stmt) {
 		if (cond.as.bool_) {
 			env_scope_begin(e);
 			eval(e, for_->body);
+			if (e->returning)
+				break;
+
 			eval(e, for_->step);
+			if (e->returning)
+				error(stmt->where, "Unexpected return in for loop");
+
 			env_scope_end(e);
 		} else
 			break;
@@ -642,14 +690,24 @@ static void eval_stmt_for(env_t *e, stmt_t *stmt) {
 	env_scope_end(e);
 }
 
+static void eval_stmt_return(env_t *e, stmt_t *stmt) {
+	if (e->returns == 0)
+		error(stmt->where, "Unexpected return");
+
+	stmt_return_t *return_ = &stmt->as.return_;
+	e->return_   = eval_expr(e, return_->expr);
+	e->returning = true;
+}
+
 void eval(env_t *e, stmt_t *program) {
 	for (stmt_t *stmt = program; stmt != NULL; stmt = stmt->next) {
 		switch (stmt->type) {
-		case STMT_TYPE_EXPR:  eval_expr(       e, stmt->as.expr); break;
-		case STMT_TYPE_LET:   eval_stmt_let(   e, stmt);          break;
-		case STMT_TYPE_IF:    eval_stmt_if(    e, stmt);          break;
-		case STMT_TYPE_WHILE: eval_stmt_while( e, stmt);          break;
-		case STMT_TYPE_FOR:   eval_stmt_for(   e, stmt);          break;
+		case STMT_TYPE_EXPR:   eval_expr(       e, stmt->as.expr); break;
+		case STMT_TYPE_LET:    eval_stmt_let(   e, stmt);          break;
+		case STMT_TYPE_IF:     eval_stmt_if(    e, stmt);          break;
+		case STMT_TYPE_WHILE:  eval_stmt_while( e, stmt);          break;
+		case STMT_TYPE_FOR:    eval_stmt_for(   e, stmt);          break;
+		case STMT_TYPE_RETURN: eval_stmt_return(e, stmt);          return;
 
 		default: UNREACHABLE("Unknown statement type");
 		}

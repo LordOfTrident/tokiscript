@@ -26,6 +26,9 @@ typedef struct {
 
 typedef struct {
 	scope_t scopes[MAX_NEST], *scope;
+	size_t  returns;
+	value_t return_;
+	bool    returning;
 } env_t;
 
 typedef value_t (*builtin_func_t)(env_t*, expr_t *expr);

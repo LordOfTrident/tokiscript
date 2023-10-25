@@ -1,0 +1,11 @@
+println(do
+	let a = 5
+	let b = 10
+
+	return do
+		let a = 20
+		let b = 25
+
+		return a + b
+	end + a
+end)

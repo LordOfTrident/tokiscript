@@ -29,10 +29,14 @@ void expr_free(expr_t *expr) {
 		expr_free(expr->as.bin_op.right);
 		break;
 
+	case EXPR_TYPE_DO:
+		stmt_free(expr->as.do_.body);
+		break;
+
 	default: break;
 	}
 
-	static_assert(EXPR_TYPE_COUNT == 4); /* Add code to free new expressions */
+	static_assert(EXPR_TYPE_COUNT == 5); /* Add code to free new expressions */
 
 	free(expr);
 }

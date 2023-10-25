@@ -13,17 +13,21 @@ typedef struct expr        expr_t;
 typedef struct expr_call   expr_call_t;
 typedef struct expr_id     expr_id_t;
 typedef struct expr_bin_op expr_bin_op_t;
+typedef struct expr_do     expr_do_t;
 
-typedef struct stmt         stmt_t;
-typedef struct stmt_let     stmt_let_t;
-typedef struct stmt_if      stmt_if_t;
-typedef struct stmt_if_base stmt_if_base_t;
+typedef struct stmt        stmt_t;
+typedef struct stmt_let    stmt_let_t;
+typedef struct stmt_if     stmt_if_t;
+typedef struct stmt_while  stmt_while_t;
+typedef struct stmt_for    stmt_for_t;
+typedef struct stmt_return stmt_return_t;
 
 typedef enum {
 	EXPR_TYPE_VALUE = 0,
 	EXPR_TYPE_CALL,
 	EXPR_TYPE_ID,
 	EXPR_TYPE_BIN_OP,
+	EXPR_TYPE_DO,
 
 	EXPR_TYPE_COUNT,
 } expr_type_t;
@@ -70,6 +74,10 @@ struct expr_bin_op {
 	expr_t *left, *right;
 };
 
+struct expr_do {
+	stmt_t *body;
+};
+
 struct expr {
 	where_t     where;
 	expr_type_t type;
@@ -79,10 +87,11 @@ struct expr {
 		expr_call_t   call;
 		expr_id_t     id;
 		expr_bin_op_t bin_op;
+		expr_do_t     do_;
 	} as;
 };
 
-static_assert(EXPR_TYPE_COUNT == 4); /* Add new expressions to union */
+static_assert(EXPR_TYPE_COUNT == 5); /* Add new expressions to union */
 
 typedef enum {
 	STMT_TYPE_EXPR = 0,
@@ -90,6 +99,7 @@ typedef enum {
 	STMT_TYPE_IF,
 	STMT_TYPE_WHILE,
 	STMT_TYPE_FOR,
+	STMT_TYPE_RETURN,
 
 	STMT_TYPE_COUNT,
 } stmt_type_t;
@@ -115,27 +125,27 @@ typedef struct stmt_for {
 	stmt_t *body;
 } stmt_for_t;
 
-typedef struct stmt_inc {
-	char   *name;
-	expr_t *by;
-} stmt_inc_t;
+typedef struct stmt_return {
+	expr_t *expr;
+} stmt_return_t;
 
 struct stmt {
 	where_t     where;
 	stmt_type_t type;
 
 	union {
-		expr_t      *expr;
-		stmt_let_t   let;
-		stmt_if_t    if_;
-		stmt_while_t while_;
-		stmt_for_t   for_;
+		expr_t       *expr;
+		stmt_let_t    let;
+		stmt_if_t     if_;
+		stmt_while_t  while_;
+		stmt_for_t    for_;
+		stmt_return_t return_;
 	} as;
 
 	stmt_t *next;
 };
 
-static_assert(STMT_TYPE_COUNT == 5); /* Add new statements to union */
+static_assert(STMT_TYPE_COUNT == 6); /* Add new statements to union */
 
 expr_t *expr_new(void);
 void    expr_free(expr_t *expr);

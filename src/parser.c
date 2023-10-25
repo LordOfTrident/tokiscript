@@ -14,7 +14,9 @@ static void parser_skip(parser_t *p) {
 	parser_advance(p);
 }
 
-static expr_t *parse_expr(parser_t *p);
+static expr_t *parse_expr( parser_t *p);
+static stmt_t *parse_stmt( parser_t *p);
+static stmt_t *parse_stmts(parser_t *p);
 
 static expr_t *parse_expr_call(parser_t *p, token_t tok) {
 	expr_t *expr       = expr_new();
@@ -88,6 +90,17 @@ static expr_t *parse_expr_bool(parser_t *p) {
 	return expr;
 }
 
+static expr_t *parse_expr_do(parser_t *p) {
+	token_t tok = p->tok;
+	parser_skip(p);
+
+	expr_t *expr      = expr_new();
+	expr->where       = tok.where;
+	expr->type        = EXPR_TYPE_DO;
+	expr->as.do_.body = parse_stmts(p);
+	return expr;
+}
+
 static expr_t *parse_expr_factor(parser_t *p) {
 	switch (p->tok.type) {
 	case TOKEN_TYPE_FALSE:
@@ -103,6 +116,8 @@ static expr_t *parse_expr_factor(parser_t *p) {
 
 		parser_skip(p);
 		return expr;
+
+	case TOKEN_TYPE_DO: return parse_expr_do(p);
 	}
 
 	default: error(p->tok.where, "Unexpected token '%s'", token_type_to_cstr(p->tok.type));
@@ -298,8 +313,6 @@ static stmt_t *parse_stmt_let(parser_t *p) {
 	return stmt;
 }
 
-static stmt_t *parse_stmt(parser_t *p);
-
 static stmt_t *parse_stmts(parser_t *p) {
 	where_t start = p->tok.where;
 
@@ -381,12 +394,24 @@ static stmt_t *parse_stmt_for(parser_t *p) {
 	return stmt;
 }
 
+static stmt_t *parse_stmt_return(parser_t *p) {
+	stmt_t *stmt = stmt_new();
+	stmt->type   = STMT_TYPE_RETURN;
+	stmt->where  = p->tok.where;
+
+	parser_skip(p);
+	stmt->as.return_.expr = parse_expr(p);
+
+	return stmt;
+}
+
 static stmt_t *parse_stmt(parser_t *p) {
 	switch (p->tok.type) {
-	case TOKEN_TYPE_LET:   return parse_stmt_let(p);
-	case TOKEN_TYPE_IF:    return parse_stmt_if(p);
-	case TOKEN_TYPE_WHILE: return parse_stmt_while(p);
-	case TOKEN_TYPE_FOR:   return parse_stmt_for(p);
+	case TOKEN_TYPE_LET:    return parse_stmt_let(p);
+	case TOKEN_TYPE_IF:     return parse_stmt_if(p);
+	case TOKEN_TYPE_WHILE:  return parse_stmt_while(p);
+	case TOKEN_TYPE_FOR:    return parse_stmt_for(p);
+	case TOKEN_TYPE_RETURN: return parse_stmt_return(p);
 
 	default: return parse_stmt_expr(p);
 	}
