@@ -17,11 +17,12 @@ static const char *token_type_to_cstr_map[TOKEN_TYPE_COUNT] = {
 	[TOKEN_TYPE_TRUE]  = "true",
 	[TOKEN_TYPE_FALSE] = "false",
 
-	[TOKEN_TYPE_LET]  = "let",
-	[TOKEN_TYPE_IF]   = "if",
-	[TOKEN_TYPE_END]  = "end",
-	[TOKEN_TYPE_ELSE] = "else",
-	[TOKEN_TYPE_ELIF] = "elif",
+	[TOKEN_TYPE_LET]   = "let",
+	[TOKEN_TYPE_IF]    = "if",
+	[TOKEN_TYPE_WHILE] = "while",
+	[TOKEN_TYPE_END]   = "end",
+	[TOKEN_TYPE_ELSE]  = "else",
+	[TOKEN_TYPE_ELIF]  = "elif",
 
 	[TOKEN_TYPE_ADD] = "+",
 	[TOKEN_TYPE_SUB] = "-",
@@ -44,7 +45,7 @@ static const char *token_type_to_cstr_map[TOKEN_TYPE_COUNT] = {
 	[TOKEN_TYPE_ERR] = "error",
 };
 
-static_assert(TOKEN_TYPE_COUNT == 27); /* Add the new token type to the map */
+static_assert(TOKEN_TYPE_COUNT == 28); /* Add the new token type to the map */
 
 bool token_type_is_bin_op(token_type_t type) {
 	switch (type) {

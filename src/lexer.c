@@ -41,6 +41,17 @@ static token_t lex_simple_sym(lexer_t *l, token_type_t type) {
 	return token_new(strcpy_to_heap(l->tok), type, start);
 }
 
+static const char *token_type_to_keyword_map[TOKEN_TYPE_COUNT] = {
+	[TOKEN_TYPE_TRUE]  = "true",
+	[TOKEN_TYPE_FALSE] = "false",
+	[TOKEN_TYPE_LET]   = "let",
+	[TOKEN_TYPE_IF]    = "if",
+	[TOKEN_TYPE_WHILE] = "while",
+	[TOKEN_TYPE_ELIF]  = "elif",
+	[TOKEN_TYPE_ELSE]  = "else",
+	[TOKEN_TYPE_END]   = "end",
+};
+
 static token_t lex_id(lexer_t *l) {
 	where_t start = l->where;
 
@@ -48,20 +59,15 @@ static token_t lex_id(lexer_t *l) {
 		lexer_tok_append(l, l->ch);
 
 	token_type_t type = TOKEN_TYPE_ID;
-	if (strcmp(l->tok, "true") == 0)
-		type = TOKEN_TYPE_TRUE;
-	else if (strcmp(l->tok, "false") == 0)
-		type = TOKEN_TYPE_FALSE;
-	else if (strcmp(l->tok, "let") == 0)
-		type = TOKEN_TYPE_LET;
-	else if (strcmp(l->tok, "if") == 0)
-		type = TOKEN_TYPE_IF;
-	else if (strcmp(l->tok, "elif") == 0)
-		type = TOKEN_TYPE_ELIF;
-	else if (strcmp(l->tok, "else") == 0)
-		type = TOKEN_TYPE_ELSE;
-	else if (strcmp(l->tok, "end") == 0)
-		type = TOKEN_TYPE_END;
+	for (size_t i = 0; i < TOKEN_TYPE_COUNT; ++ i) {
+		if (token_type_to_keyword_map[i] == NULL)
+			continue;
+
+		if (strcmp(l->tok, token_type_to_keyword_map[i]) == 0) {
+			type = (token_type_t)i;
+			break;
+		}
+	}
 
 	return token_new(strcpy_to_heap(l->tok), type, start);
 }

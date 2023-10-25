@@ -85,6 +85,7 @@ typedef enum {
 	STMT_TYPE_EXPR = 0,
 	STMT_TYPE_LET,
 	STMT_TYPE_IF,
+	STMT_TYPE_WHILE,
 
 	STMT_TYPE_COUNT,
 } stmt_type_t;
@@ -99,20 +100,26 @@ typedef struct stmt_if {
 	stmt_t *body, *else_, *next;
 } stmt_if_t;
 
+typedef struct stmt_while {
+	expr_t *cond;
+	stmt_t *body;
+} stmt_while_t;
+
 struct stmt {
 	where_t     where;
 	stmt_type_t type;
 
 	union {
-		expr_t    *expr;
-		stmt_let_t let;
-		stmt_if_t  if_;
+		expr_t      *expr;
+		stmt_let_t   let;
+		stmt_if_t    if_;
+		stmt_while_t while_;
 	} as;
 
 	stmt_t *next;
 };
 
-static_assert(STMT_TYPE_COUNT == 3); /* Add new statements to union */
+static_assert(STMT_TYPE_COUNT == 4); /* Add new statements to union */
 
 expr_t *expr_new(void);
 void    expr_free(expr_t *expr);

@@ -3,7 +3,7 @@ detect:
     filename: "\\.toki$"
 
 rules:
-    - statement: "\\b(let|if|then|end|else|elif|fun)\\b"
+    - statement: "\\b(let|if|then|end|else|elif|fun|while)\\b"
     - constant.string:
         start: "\""
         end:   "\""
@@ -16,7 +16,7 @@ rules:
     - constant.bool: "(\\b(true|false)\\b)"
 
     - symbol.operator: "[=\\+\\-\\*/^><\\(\\)]"
-    - symbol.operator: "\\b(println|print|len)\\b"
+    - special: "\\b(println|print|len)\\b"
 
     - comment:
         start: "#"

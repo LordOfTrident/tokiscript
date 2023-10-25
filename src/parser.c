@@ -319,10 +319,23 @@ static stmt_t *parse_stmt_if(parser_t *p) {
 	return stmt;
 }
 
+static stmt_t *parse_stmt_while(parser_t *p) {
+	stmt_t *stmt = stmt_new();
+	stmt->type   = STMT_TYPE_WHILE;
+	stmt->where  = p->tok.where;
+
+	parser_skip(p);
+	stmt->as.while_.cond = parse_expr(p);
+	stmt->as.while_.body = parse_stmts(p);
+
+	return stmt;
+}
+
 static stmt_t *parse_stmt(parser_t *p) {
 	switch (p->tok.type) {
-	case TOKEN_TYPE_LET: return parse_stmt_let(p);
-	case TOKEN_TYPE_IF:  return parse_stmt_if(p);
+	case TOKEN_TYPE_LET:   return parse_stmt_let(p);
+	case TOKEN_TYPE_IF:    return parse_stmt_if(p);
+	case TOKEN_TYPE_WHILE: return parse_stmt_while(p);
 
 	default: return parse_stmt_expr(p);
 	}

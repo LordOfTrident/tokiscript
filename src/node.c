@@ -65,6 +65,11 @@ void stmt_free(stmt_t *stmt) {
 		stmt_free(stmt->as.if_.next);
 		break;
 
+	case STMT_TYPE_WHILE:
+		expr_free(stmt->as.while_.cond);
+		stmt_free(stmt->as.while_.body);
+		break;
+
 	default: break;
 	}
 

@@ -462,12 +462,28 @@ static void eval_stmt_if(env_t *e, stmt_t *stmt) {
 		eval(e, if_->else_);
 }
 
+static void eval_stmt_while(env_t *e, stmt_t *stmt) {
+	stmt_while_t *while_ = &stmt->as.while_;
+
+	while (true) {
+		value_t cond = eval_expr(e, while_->cond);
+		if (cond.type != VALUE_TYPE_BOOL)
+			wrong_type(stmt->where, cond.type, "while statement condition");
+
+		if (cond.as.bool_)
+			eval(e, while_->body);
+		else
+			break;
+	}
+}
+
 void eval(env_t *e, stmt_t *program) {
 	for (stmt_t *stmt = program; stmt != NULL; stmt = stmt->next) {
 		switch (stmt->type) {
-		case STMT_TYPE_EXPR: eval_expr(e, stmt->as.expr); break;
-		case STMT_TYPE_LET:  eval_stmt_let(e, stmt);      break;
-		case STMT_TYPE_IF:   eval_stmt_if( e, stmt);      break;
+		case STMT_TYPE_EXPR:  eval_expr(       e, stmt->as.expr); break;
+		case STMT_TYPE_LET:   eval_stmt_let(   e, stmt);          break;
+		case STMT_TYPE_IF:    eval_stmt_if(    e, stmt);          break;
+		case STMT_TYPE_WHILE: eval_stmt_while( e, stmt);          break;
 
 		default: UNREACHABLE("Unknown statement type");
 		}
