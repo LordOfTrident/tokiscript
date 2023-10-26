@@ -55,6 +55,7 @@ typedef enum {
 	BIN_OP_MUL,
 	BIN_OP_DIV,
 	BIN_OP_POW,
+	BIN_OP_MOD,
 
 	BIN_OP_ASSIGN,
 	BIN_OP_INC,
@@ -71,6 +72,7 @@ typedef enum {
 
 	BIN_OP_AND,
 	BIN_OP_OR,
+	BIN_OP_IN,
 
 	BIN_OP_TYPE_COUNT,
 } bin_op_type_t;
@@ -130,6 +132,8 @@ typedef enum {
 	STMT_TYPE_FOR,
 	STMT_TYPE_RETURN,
 	STMT_TYPE_DEFER,
+	STMT_TYPE_BREAK,
+	STMT_TYPE_CONTINUE,
 
 	STMT_TYPE_COUNT,
 } stmt_type_t;
@@ -181,7 +185,7 @@ struct stmt {
 	stmt_t *next;
 };
 
-static_assert(STMT_TYPE_COUNT == 7); /* Add new statements to union */
+static_assert(STMT_TYPE_COUNT == 9); /* Add new statements to union */
 
 expr_t *expr_new(void);
 void    expr_free(expr_t *expr);

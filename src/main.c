@@ -46,7 +46,7 @@ int main(int argc, const char **argv) {
 	flag_bool("h", "help",    "Show the usage",   &help);
 	flag_bool("v", "version", "Show the version", &ver);
 
-	int    where;
+	/*int    where;
 	args_t stripped;
 	int    err = args_parse_flags(&a, &where, &stripped);
 	if (err != ARG_OK) {
@@ -62,25 +62,30 @@ int main(int argc, const char **argv) {
 	if (help)
 		usage();
 	else if (ver)
-		version();
+		version();*/
 
-	if (stripped.c < 1)
+	args_t enva = a;
+	const char *arg = args_shift(&a);
+	if (arg == NULL)
 		arg_fatal("No input file");
 
+	if (strcmp(arg, "-h") == 0 || strcmp(arg, "--help") == 0)
+		usage();
+	else if (strcmp(arg, "-v") == 0 || strcmp(arg, "--version") == 0)
+		version();
+
+	int     status;
+	stmt_t *program = parse(arg, &status);
+	if (status != 0)
+		arg_fatal("Could not open file '%s'", arg);
+
 	env_t e;
-	FOREACH_IN_ARGS(stripped, path, {
-		int     status;
-		stmt_t *program = parse(path, &status);
-		if (status != 0)
-			arg_fatal("Could not open file '%s'", path);
+	env_init(&e, enva.c, enva.v);
+	eval(&e, program);
+	env_deinit(&e);
 
-		env_init(&e);
-		eval(&e, program);
-		env_deinit(&e);
+	stmt_free(program);
 
-		stmt_free(program);
-	});
-
-	free(stripped.base);
+	/*free(stripped.base);*/
 	return EXIT_SUCCESS;
 }

@@ -18,17 +18,19 @@ static const char *token_type_to_cstr_map[TOKEN_TYPE_COUNT] = {
 	[TOKEN_TYPE_TRUE]  = "true",
 	[TOKEN_TYPE_FALSE] = "false",
 
-	[TOKEN_TYPE_LET]    = "let",
-	[TOKEN_TYPE_IF]     = "if",
-	[TOKEN_TYPE_WHILE]  = "while",
-	[TOKEN_TYPE_FOR]    = "for",
-	[TOKEN_TYPE_END]    = "end",
-	[TOKEN_TYPE_ELSE]   = "else",
-	[TOKEN_TYPE_ELIF]   = "elif",
-	[TOKEN_TYPE_DO]     = "do",
-	[TOKEN_TYPE_RETURN] = "return",
-	[TOKEN_TYPE_DEFER]  = "defer",
-	[TOKEN_TYPE_FUN]    = "fun",
+	[TOKEN_TYPE_LET]      = "let",
+	[TOKEN_TYPE_IF]       = "if",
+	[TOKEN_TYPE_WHILE]    = "while",
+	[TOKEN_TYPE_FOR]      = "for",
+	[TOKEN_TYPE_END]      = "end",
+	[TOKEN_TYPE_ELSE]     = "else",
+	[TOKEN_TYPE_ELIF]     = "elif",
+	[TOKEN_TYPE_DO]       = "do",
+	[TOKEN_TYPE_RETURN]   = "return",
+	[TOKEN_TYPE_DEFER]    = "defer",
+	[TOKEN_TYPE_FUN]      = "fun",
+	[TOKEN_TYPE_BREAK]    = "break",
+	[TOKEN_TYPE_CONTINUE] = "continue",
 
 	[TOKEN_TYPE_INC]  = "++",
 	[TOKEN_TYPE_DEC]  = "--",
@@ -40,6 +42,7 @@ static const char *token_type_to_cstr_map[TOKEN_TYPE_COUNT] = {
 	[TOKEN_TYPE_MUL] = "*",
 	[TOKEN_TYPE_DIV] = "/",
 	[TOKEN_TYPE_POW] = "^",
+	[TOKEN_TYPE_MOD] = "%",
 
 	[TOKEN_TYPE_ASSIGN]      = "=",
 	[TOKEN_TYPE_EQUALS]      = "==",
@@ -52,6 +55,7 @@ static const char *token_type_to_cstr_map[TOKEN_TYPE_COUNT] = {
 	[TOKEN_TYPE_AND] = "and",
 	[TOKEN_TYPE_OR]  = "or",
 	[TOKEN_TYPE_NOT] = "not",
+	[TOKEN_TYPE_IN]  = "in",
 
 	[TOKEN_TYPE_LPAREN]    = "(",
 	[TOKEN_TYPE_RPAREN]    = ")",
@@ -61,7 +65,7 @@ static const char *token_type_to_cstr_map[TOKEN_TYPE_COUNT] = {
 	[TOKEN_TYPE_ERR] = "error",
 };
 
-static_assert(TOKEN_TYPE_COUNT == 42); /* Add the new token type to the map */
+static_assert(TOKEN_TYPE_COUNT == 46); /* Add the new token type to the map */
 
 bool token_type_is_bin_op(token_type_t type) {
 	switch (type) {
@@ -69,13 +73,17 @@ bool token_type_is_bin_op(token_type_t type) {
 	case TOKEN_TYPE_SUB:
 	case TOKEN_TYPE_MUL:
 	case TOKEN_TYPE_DIV:
+	case TOKEN_TYPE_MOD:
+	case TOKEN_TYPE_POW:
 
 	case TOKEN_TYPE_EQUALS:
 	case TOKEN_TYPE_NOT_EQUALS:
 	case TOKEN_TYPE_GREATER:
 	case TOKEN_TYPE_GREATER_EQU:
 	case TOKEN_TYPE_LESS:
+	case TOKEN_TYPE_LESS_EQU:
 
+	case TOKEN_TYPE_IN:
 	case TOKEN_TYPE_AND:
 	case TOKEN_TYPE_OR: return true;
 

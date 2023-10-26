@@ -6,6 +6,7 @@ bin_op_type_t token_type_to_bin_op_type_map[TOKEN_TYPE_COUNT] = {
 	[TOKEN_TYPE_MUL] = BIN_OP_MUL,
 	[TOKEN_TYPE_DIV] = BIN_OP_DIV,
 	[TOKEN_TYPE_POW] = BIN_OP_POW,
+	[TOKEN_TYPE_MOD] = BIN_OP_MOD,
 
 	[TOKEN_TYPE_ASSIGN] = BIN_OP_ASSIGN,
 	[TOKEN_TYPE_INC]    = BIN_OP_INC,
@@ -22,6 +23,7 @@ bin_op_type_t token_type_to_bin_op_type_map[TOKEN_TYPE_COUNT] = {
 
 	[TOKEN_TYPE_AND] = BIN_OP_AND,
 	[TOKEN_TYPE_OR]  = BIN_OP_OR,
+	[TOKEN_TYPE_IN]  = BIN_OP_IN,
 };
 
 static bin_op_type_t token_type_to_bin_op_type(token_type_t type) {
@@ -231,10 +233,10 @@ static expr_t *parse_expr_factor(parser_t *p) {
 	return NULL;
 }
 
-static expr_t *parse_expr_term(parser_t *p) {
+static expr_t *parse_expr_pow(parser_t *p) {
 	expr_t *left = parse_expr_factor(p);
 
-	while (p->tok.type == TOKEN_TYPE_MUL || p->tok.type == TOKEN_TYPE_DIV) {
+	while (p->tok.type == TOKEN_TYPE_POW) {
 		token_t tok = p->tok;
 		parser_skip(p);
 
@@ -244,6 +246,28 @@ static expr_t *parse_expr_term(parser_t *p) {
 
 		node->as.bin_op.left  = left;
 		node->as.bin_op.right = parse_expr_factor(p);
+		node->as.bin_op.type  = token_type_to_bin_op_type(tok.type);
+
+		left = node;
+	}
+
+	return left;
+}
+
+static expr_t *parse_expr_term(parser_t *p) {
+	expr_t *left = parse_expr_pow(p);
+
+	while (p->tok.type == TOKEN_TYPE_MUL || p->tok.type == TOKEN_TYPE_DIV ||
+	       p->tok.type == TOKEN_TYPE_MOD) {
+		token_t tok = p->tok;
+		parser_skip(p);
+
+		expr_t *node = expr_new();
+		node->type  = EXPR_TYPE_BIN_OP;
+		node->where = tok.where;
+
+		node->as.bin_op.left  = left;
+		node->as.bin_op.right = parse_expr_pow(p);
 		node->as.bin_op.type  = token_type_to_bin_op_type(tok.type);
 
 		left = node;
@@ -273,6 +297,27 @@ static expr_t *parse_expr_arith(parser_t *p) {
 	return left;
 }
 
+static expr_t *parse_expr_in(parser_t *p) {
+	expr_t *left = parse_expr_arith(p);
+
+	while (p->tok.type == TOKEN_TYPE_IN) {
+		token_t tok = p->tok;
+		parser_skip(p);
+
+		expr_t *node = expr_new();
+		node->type  = EXPR_TYPE_BIN_OP;
+		node->where = tok.where;
+
+		node->as.bin_op.left  = left;
+		node->as.bin_op.right = parse_expr_arith(p);
+		node->as.bin_op.type  = token_type_to_bin_op_type(tok.type);
+
+		left = node;
+	}
+
+	return left;
+}
+
 static bool token_type_is_comp(token_type_t type) {
 	switch (type) {
 	case TOKEN_TYPE_EQUALS:
@@ -287,7 +332,7 @@ static bool token_type_is_comp(token_type_t type) {
 }
 
 static expr_t *parse_expr_comp(parser_t *p) {
-	expr_t *left = parse_expr_arith(p);
+	expr_t *left = parse_expr_in(p);
 
 	while (token_type_is_comp(p->tok.type)) {
 		token_t tok = p->tok;
@@ -298,7 +343,7 @@ static expr_t *parse_expr_comp(parser_t *p) {
 		node->where = tok.where;
 
 		node->as.bin_op.left  = left;
-		node->as.bin_op.right = parse_expr_arith(p);
+		node->as.bin_op.right = parse_expr_in(p);
 		node->as.bin_op.type  = token_type_to_bin_op_type(tok.type);
 
 		left = node;
@@ -402,11 +447,10 @@ static stmt_t *parse_stmt_let(parser_t *p) {
 	stmt->as.let.name = p->tok.data;
 
 	parser_advance(p);
-	if (p->tok.type != TOKEN_TYPE_ASSIGN)
-		return stmt;
-
-	parser_skip(p);
-	stmt->as.let.val = parse_expr(p);
+	if (p->tok.type == TOKEN_TYPE_ASSIGN) {
+		parser_skip(p);
+		stmt->as.let.val = parse_expr(p);
+	}
 
 	if (p->tok.type == TOKEN_TYPE_COMMA)
 		stmt->as.let.next = parse_stmt_let(p);
@@ -517,14 +561,34 @@ static stmt_t *parse_stmt_defer(parser_t *p) {
 	return stmt;
 }
 
+static stmt_t *parse_stmt_break(parser_t *p) {
+	stmt_t *stmt = stmt_new();
+	stmt->type   = STMT_TYPE_BREAK;
+	stmt->where  = p->tok.where;
+	parser_skip(p);
+
+	return stmt;
+}
+
+static stmt_t *parse_stmt_continue(parser_t *p) {
+	stmt_t *stmt = stmt_new();
+	stmt->type   = STMT_TYPE_CONTINUE;
+	stmt->where  = p->tok.where;
+	parser_skip(p);
+
+	return stmt;
+}
+
 static stmt_t *parse_stmt(parser_t *p) {
 	switch (p->tok.type) {
-	case TOKEN_TYPE_LET:    return parse_stmt_let(p);
-	case TOKEN_TYPE_IF:     return parse_stmt_if(p);
-	case TOKEN_TYPE_WHILE:  return parse_stmt_while(p);
-	case TOKEN_TYPE_FOR:    return parse_stmt_for(p);
-	case TOKEN_TYPE_RETURN: return parse_stmt_return(p);
-	case TOKEN_TYPE_DEFER:  return parse_stmt_defer(p);
+	case TOKEN_TYPE_LET:      return parse_stmt_let(p);
+	case TOKEN_TYPE_IF:       return parse_stmt_if(p);
+	case TOKEN_TYPE_WHILE:    return parse_stmt_while(p);
+	case TOKEN_TYPE_FOR:      return parse_stmt_for(p);
+	case TOKEN_TYPE_RETURN:   return parse_stmt_return(p);
+	case TOKEN_TYPE_DEFER:    return parse_stmt_defer(p);
+	case TOKEN_TYPE_BREAK:    return parse_stmt_break(p);
+	case TOKEN_TYPE_CONTINUE: return parse_stmt_continue(p);
 
 	default: return parse_stmt_expr(p);
 	}

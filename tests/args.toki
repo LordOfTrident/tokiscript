@@ -1,0 +1,9 @@
+for let i = 0; i < argc(); i ++ 1
+	if i > 0
+		print(", ")
+	end
+
+	print(argat(i))
+end
+
+println()

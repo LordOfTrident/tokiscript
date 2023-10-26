@@ -42,23 +42,26 @@ static token_t lex_simple_sym(lexer_t *l, token_type_t type) {
 }
 
 static const char *token_type_to_keyword_map[TOKEN_TYPE_COUNT] = {
-	[TOKEN_TYPE_NIL]    = "nil",
-	[TOKEN_TYPE_TRUE]   = "true",
-	[TOKEN_TYPE_FALSE]  = "false",
-	[TOKEN_TYPE_LET]    = "let",
-	[TOKEN_TYPE_IF]     = "if",
-	[TOKEN_TYPE_WHILE]  = "while",
-	[TOKEN_TYPE_FOR]    = "for",
-	[TOKEN_TYPE_ELIF]   = "elif",
-	[TOKEN_TYPE_ELSE]   = "else",
-	[TOKEN_TYPE_END]    = "end",
-	[TOKEN_TYPE_DO]     = "do",
-	[TOKEN_TYPE_RETURN] = "return",
-	[TOKEN_TYPE_DEFER]  = "defer",
-	[TOKEN_TYPE_FUN]    = "fun",
-	[TOKEN_TYPE_AND]    = "and",
-	[TOKEN_TYPE_OR]     = "or",
-	[TOKEN_TYPE_NOT]    = "not",
+	[TOKEN_TYPE_NIL]      = "nil",
+	[TOKEN_TYPE_TRUE]     = "true",
+	[TOKEN_TYPE_FALSE]    = "false",
+	[TOKEN_TYPE_LET]      = "let",
+	[TOKEN_TYPE_IF]       = "if",
+	[TOKEN_TYPE_WHILE]    = "while",
+	[TOKEN_TYPE_FOR]      = "for",
+	[TOKEN_TYPE_ELIF]     = "elif",
+	[TOKEN_TYPE_ELSE]     = "else",
+	[TOKEN_TYPE_END]      = "end",
+	[TOKEN_TYPE_DO]       = "do",
+	[TOKEN_TYPE_RETURN]   = "return",
+	[TOKEN_TYPE_DEFER]    = "defer",
+	[TOKEN_TYPE_FUN]      = "fun",
+	[TOKEN_TYPE_AND]      = "and",
+	[TOKEN_TYPE_OR]       = "or",
+	[TOKEN_TYPE_NOT]      = "not",
+	[TOKEN_TYPE_BREAK]    = "break",
+	[TOKEN_TYPE_CONTINUE] = "continue",
+	[TOKEN_TYPE_IN]       = "in",
 };
 
 static token_t lex_id(lexer_t *l) {
@@ -276,6 +279,7 @@ token_t lexer_next(lexer_t *l) {
 		case '-': return lex_sub(l);
 		case '*': return lex_mul(l);
 		case '^': return lex_simple_sym(l, TOKEN_TYPE_POW);
+		case '%': return lex_simple_sym(l, TOKEN_TYPE_MOD);
 
 		case '>': return lex_greater(l);
 		case '<': return lex_less(l);

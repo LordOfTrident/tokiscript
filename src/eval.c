@@ -31,8 +31,11 @@ static void env_scope_end(env_t *e) {
 	-- e->scope;
 }
 
-void env_init(env_t *e) {
+void env_init(env_t *e, int argc, const char **argv) {
 	memset(e, 0, sizeof(*e));
+
+	e->argc = argc;
+	e->argv = argv;
 	env_scope_begin(e);
 }
 
@@ -198,14 +201,142 @@ static value_t builtin_exit(env_t *e, expr_t *expr) {
 	exit((int)val.as.num);
 }
 
+static value_t builtin_system(env_t *e, expr_t *expr) {
+	expr_call_t *call = &expr->as.call;
+
+	size_t cap = 64, size = 0;
+	char *str = (char*)malloc(cap);
+	if (str == NULL)
+		UNREACHABLE("malloc() fail");
+
+	*str = '\0';
+	for (size_t i = 0; i < call->args_count; ++ i) {
+		value_t value   = eval_expr(e, call->args[i]);
+		char    buf[64] = {0};
+		const char *add = NULL;
+
+		switch (value.type) {
+		case VALUE_TYPE_NIL:  add = "(nil)";      break;
+		case VALUE_TYPE_STR:  add = value.as.str; break;
+		case VALUE_TYPE_BOOL: add = value.as.bool_? "true" : "false"; break;
+		case VALUE_TYPE_NUM: {
+			double_to_str(value.as.num, buf, sizeof(buf));
+			add = buf;
+		} break;
+
+		default: UNREACHABLE("Unknown value type");
+		}
+
+		size_t len = strlen(add);
+
+		size += len;
+		if (size + 1 >= cap) {
+			do {
+				cap *= 2;
+			} while (size + 1 >= cap);
+
+			str = (char*)realloc(str, cap);
+			if (str == NULL)
+				UNREACHABLE("realloc() fail");
+		}
+
+		strcat(str, add);
+	}
+
+	int result = system(str);
+	free(str);
+	return value_num(result);
+}
+
+static value_t builtin_platform(env_t *e, expr_t *expr) {
+	UNUSED(e);
+	expr_call_t *call = &expr->as.call;
+
+	if (call->args_count != 0)
+		wrong_arg_count(expr->where, call->args_count, 0);
+
+#if defined(WIN32)
+	return value_str("windows");
+#elif defined(__APPLE__)
+	return value_str("apple");
+#elif defined(__linux__) || defined(__gnu_linux__) || defined(linux)
+	return value_str("linux");
+#elif defined(__unix__) || defined(unix)
+	return value_str("unix");
+#else
+	return value_str("unknown");
+#endif
+}
+
+static value_t builtin_argc(env_t *e, expr_t *expr) {
+	expr_call_t *call = &expr->as.call;
+
+	if (call->args_count != 0)
+		wrong_arg_count(expr->where, call->args_count, 0);
+
+	return value_num(e->argc);
+}
+
+static value_t builtin_argat(env_t *e, expr_t *expr) {
+	expr_call_t *call = &expr->as.call;
+
+	if (call->args_count != 1)
+		wrong_arg_count(expr->where, call->args_count, 1);
+
+	value_t val = eval_expr(e, call->args[0]);
+	if (val.type != VALUE_TYPE_NUM)
+		wrong_type(expr->where, val.type, "'argat' function");
+
+	return value_str((char*)e->argv[(int)val.as.num]);
+}
+
+static value_t builtin_strtonum(env_t *e, expr_t *expr) {
+	expr_call_t *call = &expr->as.call;
+
+	if (call->args_count != 1)
+		wrong_arg_count(expr->where, call->args_count, 1);
+
+	value_t val = eval_expr(e, call->args[0]);
+	if (val.type != VALUE_TYPE_STR)
+		wrong_type(expr->where, val.type, "'strtonum' function");
+
+	char *ptr;
+	double n = (double)strtod(val.as.str, &ptr);
+	if (*ptr != '\0')
+		return value_nil();
+	else
+		return value_num(n);
+}
+
+static value_t builtin_numtostr(env_t *e, expr_t *expr) {
+	expr_call_t *call = &expr->as.call;
+
+	if (call->args_count != 1)
+		wrong_arg_count(expr->where, call->args_count, 1);
+
+	value_t val = eval_expr(e, call->args[0]);
+	if (val.type != VALUE_TYPE_NUM)
+		wrong_type(expr->where, val.type, "'numtostr' function");
+
+	char buf[64] = {0};
+	double_to_str(val.as.num, buf, sizeof(buf));
+	return value_str(strcpy_to_heap(buf));
+}
+
 static builtin_t builtins[] = {
-	{.name = "println", .func = builtin_println},
-	{.name = "print",   .func = builtin_print},
-	{.name = "len",     .func = builtin_len},
-	{.name = "readnum", .func = builtin_readnum},
-	{.name = "readstr", .func = builtin_readstr},
-	{.name = "panic",   .func = builtin_panic},
-	{.name = "exit",    .func = builtin_exit},
+	{.name = "println",  .func = builtin_println},
+	{.name = "print",    .func = builtin_print},
+	{.name = "len",      .func = builtin_len},
+	{.name = "readnum",  .func = builtin_readnum},
+	{.name = "readstr",  .func = builtin_readstr},
+	{.name = "panic",    .func = builtin_panic},
+	{.name = "exit",     .func = builtin_exit},
+	{.name = "system",   .func = builtin_system},
+	{.name = "platform", .func = builtin_platform},
+	{.name = "argc",     .func = builtin_argc},
+	{.name = "argat",    .func = builtin_argat},
+	{.name = "strtonum", .func = builtin_strtonum},
+	{.name = "numtostr", .func = builtin_numtostr},
 };
 
 static value_t eval_expr_call(env_t *e, expr_t *expr) {
@@ -377,9 +508,6 @@ static value_t eval_expr_bin_op_assign(env_t *e, expr_t *expr) {
 	var_t *var  = env_get_var(e, name);
 	if (var == NULL)
 		undefined(expr->where, name);
-
-	if (val.type != var->val.type)
-		wrong_type(expr->where, val.type, "assignment");
 
 	var->val = val;
 	return val;
@@ -574,6 +702,26 @@ static value_t eval_expr_bin_op_pow(env_t *e, expr_t *expr) {
 	return left;
 }
 
+static value_t eval_expr_bin_op_mod(env_t *e, expr_t *expr) {
+	expr_bin_op_t *bin_op = &expr->as.bin_op;
+
+	value_t left  = eval_expr(e, bin_op->left);
+	value_t right = eval_expr(e, bin_op->right);
+
+	if (left.type != VALUE_TYPE_NUM)
+		wrong_type(expr->where, left.type, "left side of '^' operation");
+	else if (right.type != VALUE_TYPE_NUM)
+		wrong_type(expr->where, right.type,
+		           "right side of '^' operation, expected same as left side");
+
+	if (right.as.num == 0)
+		error(expr->where, "division by zero");
+
+	float remainder = left.as.num / right.as.num;
+	left.as.num = right.as.num * (remainder - floor(remainder));
+	return left;
+}
+
 static value_t eval_expr_bin_op_and(env_t *e, expr_t *expr) {
 	expr_bin_op_t *bin_op = &expr->as.bin_op;
 
@@ -606,6 +754,25 @@ static value_t eval_expr_bin_op_or(env_t *e, expr_t *expr) {
 	return left;
 }
 
+static value_t eval_expr_bin_op_in(env_t *e, expr_t *expr) {
+	expr_bin_op_t *bin_op = &expr->as.bin_op;
+
+	value_t left  = eval_expr(e, bin_op->left);
+	value_t right = eval_expr(e, bin_op->right);
+
+	if (left.type != VALUE_TYPE_STR)
+		wrong_type(expr->where, left.type, "left side of 'in' operation");
+	else if (right.type != VALUE_TYPE_STR)
+		wrong_type(expr->where, right.type,
+		           "right side of 'in' operation, expected same as left side");
+
+	const char *ptr = strstr(right.as.str, left.as.str);
+	if (ptr == NULL)
+		return value_nil();
+	else
+		return value_num((double)(ptr - right.as.str));
+}
+
 static value_t eval_expr_bin_op(env_t *e, expr_t *expr) {
 	switch (expr->as.bin_op.type) {
 	case BIN_OP_EQUALS:      return eval_expr_bin_op_equals(     e, expr);
@@ -617,6 +784,7 @@ static value_t eval_expr_bin_op(env_t *e, expr_t *expr) {
 
 	case BIN_OP_AND: return eval_expr_bin_op_and(e, expr);
 	case BIN_OP_OR:  return eval_expr_bin_op_or( e, expr);
+	case BIN_OP_IN:  return eval_expr_bin_op_in( e, expr);
 
 	case BIN_OP_ASSIGN: return eval_expr_bin_op_assign(e, expr);
 	case BIN_OP_INC:    return eval_expr_bin_op_inc(   e, expr);
@@ -629,6 +797,7 @@ static value_t eval_expr_bin_op(env_t *e, expr_t *expr) {
 	case BIN_OP_MUL: return eval_expr_bin_op_mul(e, expr);
 	case BIN_OP_DIV: return eval_expr_bin_op_div(e, expr);
 	case BIN_OP_POW: return eval_expr_bin_op_pow(e, expr);
+	case BIN_OP_MOD: return eval_expr_bin_op_mod(e, expr);
 
 	default: UNREACHABLE("Unknown binary operation type");
 	}
@@ -722,11 +891,12 @@ static void eval_stmt_let(env_t *e, stmt_t *stmt) {
 
 static void eval_stmt_if(env_t *e, stmt_t *stmt) {
 	stmt_if_t *if_ = &stmt->as.if_;
-	env_scope_begin(e);
 
 	value_t cond = eval_expr(e, if_->cond);
 	if (cond.type != VALUE_TYPE_BOOL)
 		wrong_type(stmt->where, cond.type, "if statement condition");
+
+	env_scope_begin(e);
 
 	if (cond.as.bool_)
 		eval(e, if_->body);
@@ -740,23 +910,28 @@ static void eval_stmt_if(env_t *e, stmt_t *stmt) {
 
 static void eval_stmt_while(env_t *e, stmt_t *stmt) {
 	stmt_while_t *while_ = &stmt->as.while_;
-	env_scope_begin(e);
 
+	++ e->breaks;
 	while (true) {
 		value_t cond = eval_expr(e, while_->cond);
 		if (cond.type != VALUE_TYPE_BOOL)
 			wrong_type(stmt->where, cond.type, "while statement condition");
 
-		if (cond.as.bool_)
-			eval(e, while_->body);
-		else
+		if (!cond.as.bool_)
 			break;
 
+		env_scope_begin(e);
+		eval(e, while_->body);
+		env_scope_end(e);
 		if (e->returning)
 			break;
+		else if (e->breaking) {
+			e->breaking = false;
+			break;
+		} else if (e->continuing)
+			e->continuing = false;
 	}
-
-	env_scope_end(e);
+	-- e->breaks;
 }
 
 static void eval_stmt_for(env_t *e, stmt_t *stmt) {
@@ -767,6 +942,7 @@ static void eval_stmt_for(env_t *e, stmt_t *stmt) {
 	if (e->returning)
 		error(stmt->where, "Unexpected return in for loop");
 
+	++ e->breaks;
 	while (true) {
 		value_t cond = eval_expr(e, for_->cond);
 		if (cond.type != VALUE_TYPE_BOOL)
@@ -775,17 +951,26 @@ static void eval_stmt_for(env_t *e, stmt_t *stmt) {
 		if (cond.as.bool_) {
 			env_scope_begin(e);
 			eval(e, for_->body);
+			env_scope_end(e);
 			if (e->returning)
 				break;
+			else if (e->breaking) {
+				e->breaking = false;
+				break;
+			} else if (e->continuing)
+				e->continuing = false;
 
 			eval(e, for_->step);
 			if (e->returning)
-				error(stmt->where, "Unexpected return in for loop");
-
-			env_scope_end(e);
+				error(stmt->where, "Unexpected return in for loop step");
+			else if (e->breaking)
+				error(stmt->where, "Unexpected break in for loop step");
+			else if (e->continuing)
+				error(stmt->where, "Unexpected continue in for loop step");
 		} else
 			break;
 	}
+	-- e->breaks;
 
 	env_scope_end(e);
 }
@@ -797,6 +982,20 @@ static void eval_stmt_return(env_t *e, stmt_t *stmt) {
 	stmt_return_t *return_ = &stmt->as.return_;
 	e->return_   = eval_expr(e, return_->expr);
 	e->returning = true;
+}
+
+static void eval_stmt_break(env_t *e, stmt_t *stmt) {
+	if (e->breaks == 0)
+		error(stmt->where, "Unexpected break");
+
+	e->breaking = true;
+}
+
+static void eval_stmt_continue(env_t *e, stmt_t *stmt) {
+	if (e->breaks == 0)
+		error(stmt->where, "Unexpected continue");
+
+	e->continuing = true;
 }
 
 static void eval_stmt_defer(env_t *e, stmt_t *stmt) {
@@ -815,13 +1014,15 @@ static void eval_stmt_defer(env_t *e, stmt_t *stmt) {
 void eval(env_t *e, stmt_t *program) {
 	for (stmt_t *stmt = program; stmt != NULL; stmt = stmt->next) {
 		switch (stmt->type) {
-		case STMT_TYPE_EXPR:   eval_expr(       e, stmt->as.expr); break;
-		case STMT_TYPE_LET:    eval_stmt_let(   e, stmt);          break;
-		case STMT_TYPE_IF:     eval_stmt_if(    e, stmt);          break;
-		case STMT_TYPE_WHILE:  eval_stmt_while( e, stmt);          break;
-		case STMT_TYPE_FOR:    eval_stmt_for(   e, stmt);          break;
-		case STMT_TYPE_RETURN: eval_stmt_return(e, stmt);          return;
-		case STMT_TYPE_DEFER:  eval_stmt_defer( e, stmt);          break;
+		case STMT_TYPE_EXPR:     eval_expr(         e, stmt->as.expr); break;
+		case STMT_TYPE_LET:      eval_stmt_let(     e, stmt);          break;
+		case STMT_TYPE_IF:       eval_stmt_if(      e, stmt);          break;
+		case STMT_TYPE_WHILE:    eval_stmt_while(   e, stmt);          break;
+		case STMT_TYPE_FOR:      eval_stmt_for(     e, stmt);          break;
+		case STMT_TYPE_RETURN:   eval_stmt_return(  e, stmt);          return;
+		case STMT_TYPE_BREAK:    eval_stmt_break(   e, stmt);          return;
+		case STMT_TYPE_CONTINUE: eval_stmt_continue(e, stmt);          return;
+		case STMT_TYPE_DEFER:    eval_stmt_defer(   e, stmt);          break;
 
 		default: UNREACHABLE("Unknown statement type");
 		}

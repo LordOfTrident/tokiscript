@@ -13,7 +13,7 @@
 #include "eval.h"
 
 #define APP_NAME "tokiscript"
-#define USAGE    "PATH [OPTIONS]"
+#define USAGE    "<PATH | OPTIONS> [...]"
 
 #define VERSION_MAJOR 1
 #define VERSION_MINOR 3

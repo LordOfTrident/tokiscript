@@ -30,9 +30,12 @@ typedef struct {
 
 typedef struct {
 	scope_t scopes[MAX_NEST], *scope;
-	size_t  returns;
+	size_t  returns, breaks;
 	value_t return_;
-	bool    returning;
+	bool    returning, breaking, continuing;
+
+	int argc;
+	const char **argv;
 } env_t;
 
 typedef value_t (*builtin_func_t)(env_t*, expr_t *expr);
@@ -42,7 +45,7 @@ typedef struct {
 	builtin_func_t func;
 } builtin_t;
 
-void env_init(  env_t *e);
+void env_init(  env_t *e, int argc, const char **argv);
 void env_deinit(env_t *e);
 
 void eval(env_t *e, stmt_t *program);

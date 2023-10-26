@@ -1,0 +1,75 @@
+if argc() > 1
+	if argat(1) == "-h" or argat(1) == "--help"
+		println("Usage:", argat(0), "-h | --help")
+		println("      ", argat(0), "<NUM> <OP> <NUM>")
+		println()
+		println("Providing no arguments starts the REPL")
+		println()
+		println("Operations: + - * / % ^")
+		exit(0)
+	elif argc() == 4
+		let a = strtonum(argat(1)), op = argat(2), b = strtonum(argat(3))
+		let result = do
+			if op == "+"
+				return a + b
+			elif op == "-"
+				return a - b
+			elif op == "*"
+				return a * b
+			elif op == "/"
+				return a / b
+			elif op == "%"
+				return a % b
+			elif op == "^"
+				return a ^ b
+			else
+				panic("Unimplemented operation", op)
+			end
+		end
+
+		println(a, op, b, "=", result)
+	else
+		println("(err) Unexpected arguments, try \"-h\"")
+		exit(1)
+	end
+
+	exit(0)
+end
+
+let op
+while op /= "exit"
+	op = readstr("(in)")
+
+	if op == "exit"
+		println("(exit)")
+		break
+	elif op == "help"
+		println("Commands:   exit   help")
+		println("Operations: + - * / % ^")
+	elif op in "+-*/%^" /= nil
+		let a = readnum("a ="), b = readnum("b =")
+		let result = do
+			if op == "+"
+				return a + b
+			elif op == "-"
+				return a - b
+			elif op == "*"
+				return a * b
+			elif op == "/"
+				return a / b
+			elif op == "%"
+				return a % b
+			elif op == "^"
+				return a ^ b
+			else
+				panic("Unimplemented operation", op)
+			end
+		end
+
+		println("(out)", a, op, b, "=", result)
+	else
+		print("(err) Unknown operation \"")
+		print(op)
+		println("\", try \"help\"")
+	end
+end
