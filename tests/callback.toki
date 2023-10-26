@@ -1,0 +1,9 @@
+fun saySomething(msg, callback)
+	println("Hello! calling a callback:")
+	callback(msg)
+	println("Exiting!")
+end
+
+saySomething("test", fun(msg)
+	println("recieved:", msg)
+end)

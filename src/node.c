@@ -101,6 +101,11 @@ void stmt_free(stmt_t *stmt) {
 		stmt_free(stmt->as.defer.stmt);
 		break;
 
+	case STMT_TYPE_FUN:
+		expr_free(stmt->as.fun.def);
+		free(stmt->as.fun.name);
+		break;
+
 	default: break;
 	}
 

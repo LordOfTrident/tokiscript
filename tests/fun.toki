@@ -7,9 +7,18 @@ println(println)
 
 (println)("Testing")
 
-let add = fun(a, b)
+# OG way of defining a function
+const add = fun(a, b)
 	return a + b
 end
 
 println(add)
 println(add(5, 10))
+
+# New syntax sugar
+fun sub(a, b)
+	return a - b
+end
+
+println(sub)
+println(sub(5, 10))

@@ -31,7 +31,7 @@ static void env_scope_end(env_t *e) {
 	-- e->scope;
 }
 
-static var_t *env_new_var(env_t *e, const char *name) {
+static var_t *env_new_var(env_t *e, const char *name, bool const_) {
 	size_t idx = -1;
 	for (size_t i = 0; i < e->scope->vars_count; ++ i) {
 		if (e->scope->vars[i].name == NULL) {
@@ -52,7 +52,8 @@ static var_t *env_new_var(env_t *e, const char *name) {
 		idx = e->scope->vars_count ++;
 	}
 
-	e->scope->vars[idx].name = (char*)name;
+	e->scope->vars[idx].name   = (char*)name;
+	e->scope->vars[idx].const_ = const_;
 	return e->scope->vars + idx;
 }
 
@@ -79,7 +80,7 @@ void env_init(env_t *e, int argc, const char **argv) {
 	env_scope_begin(e);
 
 	for (size_t i = 0; i < sizeof(builtins) / sizeof(*builtins); ++ i) {
-		var_t *var = env_new_var(e, builtins[i].name);
+		var_t *var = env_new_var(e, builtins[i].name, true);
 		assert(var != NULL);
 
 		var->val = value_nat(builtins[i].func);
@@ -429,7 +430,7 @@ static value_t eval_expr_call(env_t *e, expr_t *expr) {
 		env_scope_begin(e);
 
 		for (size_t i = 0; i < fun->args_count; ++ i) {
-			var_t *var = env_new_var(e, fun->args[i]);
+			var_t *var = env_new_var(e, fun->args[i], false);
 			var->val = evaled[i];
 		}
 
@@ -578,6 +579,9 @@ static value_t eval_expr_bin_op_assign(env_t *e, expr_t *expr) {
 	var_t *var  = env_get_var(e, name);
 	if (var == NULL)
 		undefined(expr->where, name);
+
+	if (var->const_)
+		error(expr->where, "Attempt to assign to constant '%s'", name);
 
 	var->val = val;
 	return val;
@@ -932,7 +936,7 @@ static value_t eval_expr(env_t *e, expr_t *expr) {
 static void eval_stmt_let(env_t *e, stmt_t *stmt) {
 	stmt_let_t *let = &stmt->as.let;
 
-	var_t *var = env_new_var(e, let->name);
+	var_t *var = env_new_var(e, let->name, let->const_);
 	if (var == NULL)
 		error(stmt->where, "Variable '%s' redeclared", let->name);
 
@@ -1064,6 +1068,16 @@ static void eval_stmt_defer(env_t *e, stmt_t *stmt) {
 	e->scope->defer[e->scope->defer_count ++] = defer->stmt;
 }
 
+static void eval_stmt_fun(env_t *e, stmt_t *stmt) {
+	stmt_fun_t *fun = &stmt->as.fun;
+
+	var_t *var = env_new_var(e, fun->name, true);
+	if (var == NULL)
+		error(stmt->where, "Function '%s' redeclared", fun->name);
+
+	var->val = eval_expr(e, fun->def);
+}
+
 void eval(env_t *e, stmt_t *program) {
 	for (stmt_t *stmt = program; stmt != NULL; stmt = stmt->next) {
 		switch (stmt->type) {
@@ -1076,6 +1090,7 @@ void eval(env_t *e, stmt_t *program) {
 		case STMT_TYPE_BREAK:    eval_stmt_break(   e, stmt);          return;
 		case STMT_TYPE_CONTINUE: eval_stmt_continue(e, stmt);          return;
 		case STMT_TYPE_DEFER:    eval_stmt_defer(   e, stmt);          break;
+		case STMT_TYPE_FUN:      eval_stmt_fun(     e, stmt);          break;
 
 		default: UNREACHABLE("Unknown statement type");
 		}

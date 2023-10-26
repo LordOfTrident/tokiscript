@@ -1,8 +1,8 @@
-let isop = fun(op)
+fun isop(op)
 	return op in "+-*/%^" /= nil
 end
 
-let perform = fun(a, b, op)
+fun perform(a, b, op)
 	if op == "+"
 		return a + b
 	elif op == "-"
@@ -20,7 +20,7 @@ let perform = fun(a, b, op)
 	end
 end
 
-let usage = fun()
+fun usage()
 	println("Usage:", argat(0), "-h | --help")
 	println("      ", argat(0), "<NUM> <OP> <NUM>")
 	println()
@@ -30,7 +30,7 @@ let usage = fun()
 	exit(0)
 end
 
-let repl = fun()
+fun repl()
 	while true
 		let op = readstr("(in)")
 

@@ -14,6 +14,7 @@
 typedef struct {
 	char   *name;
 	value_t val;
+	bool    const_;
 } var_t;
 
 #define VARS_CHUNK  32

@@ -24,6 +24,7 @@ typedef struct stmt_while  stmt_while_t;
 typedef struct stmt_for    stmt_for_t;
 typedef struct stmt_return stmt_return_t;
 typedef struct stmt_defer  stmt_defer_t;
+typedef struct stmt_fun    stmt_fun_t;
 
 typedef enum {
 	EXPR_TYPE_VALUE = 0,
@@ -134,6 +135,7 @@ typedef enum {
 	STMT_TYPE_DEFER,
 	STMT_TYPE_BREAK,
 	STMT_TYPE_CONTINUE,
+	STMT_TYPE_FUN,
 
 	STMT_TYPE_COUNT,
 } stmt_type_t;
@@ -142,6 +144,7 @@ struct stmt_let {
 	char   *name;
 	expr_t *val;
 	stmt_t *next;
+	bool    const_;
 };
 
 struct stmt_if {
@@ -168,6 +171,11 @@ struct stmt_defer {
 	stmt_t *stmt;
 };
 
+struct stmt_fun {
+	char   *name;
+	expr_t *def;
+};
+
 struct stmt {
 	where_t     where;
 	stmt_type_t type;
@@ -180,12 +188,13 @@ struct stmt {
 		stmt_for_t    for_;
 		stmt_return_t return_;
 		stmt_defer_t  defer;
+		stmt_fun_t    fun;
 	} as;
 
 	stmt_t *next;
 };
 
-static_assert(STMT_TYPE_COUNT == 9); /* Add new statements to union */
+static_assert(STMT_TYPE_COUNT == 10); /* Add new statements to union */
 
 expr_t *expr_new(void);
 void    expr_free(expr_t *expr);
