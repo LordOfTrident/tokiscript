@@ -31,9 +31,8 @@ let usage = fun()
 end
 
 let repl = fun()
-	let op
-	while op /= "exit"
-		op = readstr("(in)")
+	while true
+		let op = readstr("(in)")
 
 		if op == "exit"
 			println("(exit)")

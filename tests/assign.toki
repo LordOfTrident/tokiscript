@@ -1,16 +1,16 @@
 let a = 5
 println("let a =", a)
 
-a = + 5
-println("a = + 5")
+a ++ 5
+println("a ++ 5")
 println("a =", a)
 
-a = * 2
-println("a = * 2")
+a ** 2
+println("a ** 2")
 println("a =", a)
 
-a = / 10
-println("a = / 10")
+a // 10
+println("a // 10")
 println("a =", a)
 
 let b = a * 20

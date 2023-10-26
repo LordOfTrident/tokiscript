@@ -59,6 +59,8 @@ static const char *token_type_to_cstr_map[TOKEN_TYPE_COUNT] = {
 
 	[TOKEN_TYPE_LPAREN]    = "(",
 	[TOKEN_TYPE_RPAREN]    = ")",
+	[TOKEN_TYPE_LSQUARE]   = "[",
+	[TOKEN_TYPE_RSQUARE]   = "]",
 	[TOKEN_TYPE_COMMA]     = ",",
 	[TOKEN_TYPE_SEMICOLON] = ";",
 

@@ -1,0 +1,23 @@
+# A very bad shell that relies on bash, but its to demonstrate getenv, system and other stuff
+let ex = 0
+
+while true
+	let prompt = getenv("PROMPT")
+	if prompt == nil
+		prompt = "$"
+	end
+
+	let cmd = readstr(prompt)
+
+	if cmd == "exit"
+		break
+	end
+
+	ex = system(cmd)
+
+	if ex /= 0
+		println("\nChild exited with exitcode", ex)
+	end
+end
+
+exit(ex)

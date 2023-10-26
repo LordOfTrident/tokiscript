@@ -272,6 +272,8 @@ token_t lexer_next(lexer_t *l) {
 		switch (l->ch) {
 		case '(': return lex_simple_sym(l, TOKEN_TYPE_LPAREN);
 		case ')': return lex_simple_sym(l, TOKEN_TYPE_RPAREN);
+		case '[': return lex_simple_sym(l, TOKEN_TYPE_LSQUARE);
+		case ']': return lex_simple_sym(l, TOKEN_TYPE_RSQUARE);
 		case ',': return lex_simple_sym(l, TOKEN_TYPE_COMMA);
 		case ';': return lex_simple_sym(l, TOKEN_TYPE_SEMICOLON);
 
