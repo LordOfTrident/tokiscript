@@ -65,36 +65,9 @@ static expr_t *parse_expr( parser_t *p);
 static stmt_t *parse_stmt( parser_t *p);
 static stmt_t *parse_stmts(parser_t *p);
 
-static expr_t *parse_expr_call(parser_t *p, token_t tok) {
-	expr_t *expr       = expr_new();
-	expr->where        = tok.where;
-	expr->type         = EXPR_TYPE_CALL;
-	expr->as.call.name = tok.data;
-
-	parser_skip(p);
-	while (p->tok.type != TOKEN_TYPE_RPAREN) {
-		assert(expr->as.call.args_count < CALL_ARGS_CAPACITY);
-
-		expr->as.call.args[expr->as.call.args_count ++] = parse_expr(p);
-
-		if (p->tok.type == TOKEN_TYPE_RPAREN)
-			break;
-		else if (p->tok.type != TOKEN_TYPE_COMMA)
-			error(p->tok.where, "Expected ',', got '%s'", token_type_to_cstr(p->tok.type));
-
-		parser_skip(p);
-	}
-
-	parser_skip(p);
-	return expr;
-}
-
 static expr_t *parse_expr_id(parser_t *p) {
 	token_t tok = p->tok;
-
 	parser_advance(p);
-	if (p->tok.type == TOKEN_TYPE_LPAREN)
-		return parse_expr_call(p, tok);
 
 	expr_t *expr     = expr_new();
 	expr->where      = tok.where;
@@ -174,7 +147,7 @@ static expr_t *parse_expr_fun(parser_t *p) {
 
 		expr->as.fun.args[expr->as.fun.args_count ++] = p->tok.data;
 
-		parser_skip(p);
+		parser_advance(p);
 		if (p->tok.type == TOKEN_TYPE_RPAREN)
 			break;
 		else if (p->tok.type != TOKEN_TYPE_COMMA)
@@ -233,8 +206,37 @@ static expr_t *parse_expr_factor(parser_t *p) {
 	return NULL;
 }
 
+static expr_t *parse_expr_call(parser_t *p) {
+	expr_t *expr = parse_expr_factor(p);
+
+	if (p->tok.type == TOKEN_TYPE_LPAREN) {
+		expr_t *call       = expr_new();
+		call->where        = p->tok.where;
+		call->type         = EXPR_TYPE_CALL;
+		call->as.call.expr = expr;
+
+		parser_skip(p);
+		while (p->tok.type != TOKEN_TYPE_RPAREN) {
+			assert(call->as.call.args_count < CALL_ARGS_CAPACITY);
+
+			call->as.call.args[call->as.call.args_count ++] = parse_expr(p);
+
+			if (p->tok.type == TOKEN_TYPE_RPAREN)
+				break;
+			else if (p->tok.type != TOKEN_TYPE_COMMA)
+				error(p->tok.where, "Expected ',', got '%s'", token_type_to_cstr(p->tok.type));
+
+			parser_skip(p);
+		}
+
+		parser_skip(p);
+		return call;
+	} else
+		return expr;
+}
+
 static expr_t *parse_expr_pow(parser_t *p) {
-	expr_t *left = parse_expr_factor(p);
+	expr_t *left = parse_expr_call(p);
 
 	while (p->tok.type == TOKEN_TYPE_POW) {
 		token_t tok = p->tok;
@@ -245,7 +247,7 @@ static expr_t *parse_expr_pow(parser_t *p) {
 		node->where = tok.where;
 
 		node->as.bin_op.left  = left;
-		node->as.bin_op.right = parse_expr_factor(p);
+		node->as.bin_op.right = parse_expr_call(p);
 		node->as.bin_op.type  = token_type_to_bin_op_type(tok.type);
 
 		left = node;

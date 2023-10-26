@@ -21,7 +21,7 @@ void expr_free(expr_t *expr) {
 		for (size_t i = 0; i < expr->as.call.args_count; ++ i)
 			expr_free(expr->as.call.args[i]);
 
-		free(expr->as.call.name);
+		expr_free(expr->as.call.expr);
 		break;
 
 	case EXPR_TYPE_BIN_OP:

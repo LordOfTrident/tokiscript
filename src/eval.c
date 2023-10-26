@@ -31,12 +31,59 @@ static void env_scope_end(env_t *e) {
 	-- e->scope;
 }
 
+static var_t *env_new_var(env_t *e, const char *name) {
+	size_t idx = -1;
+	for (size_t i = 0; i < e->scope->vars_count; ++ i) {
+		if (e->scope->vars[i].name == NULL) {
+			if (idx == (size_t)-1)
+				idx = i;
+		} else if (strcmp(e->scope->vars[i].name, name) == 0)
+			return NULL;
+	}
+
+	if (idx == (size_t)-1) {
+		if (e->scope->vars_count >= e->scope->vars_cap) {
+			e->scope->vars_cap *= 2;
+			e->scope->vars = (var_t*)realloc(e->scope->vars, e->scope->vars_cap * sizeof(var_t));
+			if (e->scope->vars == NULL)
+				UNREACHABLE("realloc() fail");
+		}
+
+		idx = e->scope->vars_count ++;
+	}
+
+	e->scope->vars[idx].name = (char*)name;
+	return e->scope->vars + idx;
+}
+
+static var_t *env_get_var(env_t *e, char *name) {
+	for (scope_t *scope = e->scope; scope != e->scopes - 1; -- scope) {
+		for (size_t i = 0; i < scope->vars_count; ++ i) {
+			if (scope->vars[i].name == NULL)
+				continue;
+
+			if (strcmp(scope->vars[i].name, name) == 0)
+				return &scope->vars[i];
+		}
+	}
+
+	return NULL;
+}
+
 void env_init(env_t *e, int argc, const char **argv) {
 	memset(e, 0, sizeof(*e));
 
 	e->argc = argc;
 	e->argv = argv;
+
 	env_scope_begin(e);
+
+	for (size_t i = 0; i < sizeof(builtins) / sizeof(*builtins); ++ i) {
+		var_t *var = env_new_var(e, builtins[i].name);
+		assert(var != NULL);
+
+		var->val = value_nat(builtins[i].func);
+	}
 }
 
 void env_deinit(env_t *e) {
@@ -54,8 +101,10 @@ static value_t eval_expr(env_t *e, expr_t *expr);
 
 static void fprint_value(value_t value, FILE *file) {
 	switch (value.type) {
-	case VALUE_TYPE_NIL:  fprintf(file, "(nil)");            break;
-	case VALUE_TYPE_STR:  fprintf(file, "%s", value.as.str); break;
+	case VALUE_TYPE_NAT:  fprintf(file, "(native)"); break;
+	case VALUE_TYPE_FUN:  fprintf(file, "(fun %p)", (void*)value.as.fun);        break;
+	case VALUE_TYPE_NIL:  fprintf(file, "(nil)");                                break;
+	case VALUE_TYPE_STR:  fprintf(file, "%s", value.as.str);                     break;
 	case VALUE_TYPE_BOOL: fprintf(file, "%s", value.as.bool_? "true" : "false"); break;
 	case VALUE_TYPE_NUM: {
 		char buf[64] = {0};
@@ -155,19 +204,7 @@ static value_t builtin_readstr(env_t *e, expr_t *expr) {
 		if (i > 0)
 			putchar(' ');
 
-		value_t value = eval_expr(e, call->args[i]);
-		switch (value.type) {
-		case VALUE_TYPE_NIL:  printf("(nil)");            break;
-		case VALUE_TYPE_STR:  printf("%s", value.as.str); break;
-		case VALUE_TYPE_BOOL: printf("%s", value.as.bool_? "true" : "false"); break;
-		case VALUE_TYPE_NUM: {
-			char buf[64] = {0};
-			double_to_str(value.as.num, buf, sizeof(buf));
-			printf("%s", buf);
-		} break;
-
-		default: UNREACHABLE("Unknown value type");
-		}
+		fprint_value(eval_expr(e, call->args[i]), stdout);
 	}
 
 	putchar(' ');
@@ -216,13 +253,19 @@ static value_t builtin_system(env_t *e, expr_t *expr) {
 		const char *add = NULL;
 
 		switch (value.type) {
+		case VALUE_TYPE_NAT: add = "(native)"; break;
+		case VALUE_TYPE_FUN:
+			sprintf(buf, "(fun %p)", (void*)value.as.fun);
+			add = buf;
+			break;
+
 		case VALUE_TYPE_NIL:  add = "(nil)";      break;
 		case VALUE_TYPE_STR:  add = value.as.str; break;
 		case VALUE_TYPE_BOOL: add = value.as.bool_? "true" : "false"; break;
-		case VALUE_TYPE_NUM: {
+		case VALUE_TYPE_NUM:
 			double_to_str(value.as.num, buf, sizeof(buf));
 			add = buf;
-		} break;
+			break;
 
 		default: UNREACHABLE("Unknown value type");
 		}
@@ -340,7 +383,7 @@ static value_t builtin_getenv(env_t *e, expr_t *expr) {
 		return value_str(str);
 }
 
-static builtin_t builtins[] = {
+builtin_t builtins[BUILTINS_COUNT] = {
 	{.name = "println",  .func = builtin_println},
 	{.name = "print",    .func = builtin_print},
 	{.name = "len",      .func = builtin_len},
@@ -357,37 +400,7 @@ static builtin_t builtins[] = {
 	{.name = "getenv",   .func = builtin_getenv},
 };
 
-static value_t eval_expr_call(env_t *e, expr_t *expr) {
-	for (size_t i = 0; i < sizeof(builtins) / sizeof(*builtins); ++ i) {
-		if (strcmp(builtins[i].name, expr->as.call.name) == 0)
-			return builtins[i].func(e, expr);
-	}
-
-	error(expr->where, "Unknown function '%s'", expr->as.call.name);
-	return value_nil();
-}
-
-static var_t *env_get_var(env_t *e, char *name) {
-	for (scope_t *scope = e->scope; scope != e->scopes - 1; -- scope) {
-		for (size_t i = 0; i < scope->vars_count; ++ i) {
-			if (scope->vars[i].name == NULL)
-				continue;
-
-			if (strcmp(scope->vars[i].name, name) == 0)
-				return &scope->vars[i];
-		}
-	}
-
-	return NULL;
-}
-
-static value_t eval_expr_id(env_t *e, expr_t *expr) {
-	var_t *var = env_get_var(e, expr->as.id.name);
-	if (var == NULL)
-		undefined(expr->where, expr->as.id.name);
-
-	return var->val;
-}
+static_assert(BUILTINS_COUNT == 14); /* Update builtins count */
 
 static value_t eval_with_return(env_t *e, stmt_t *stmt) {
 	++ e->returns;
@@ -399,6 +412,45 @@ static value_t eval_with_return(env_t *e, stmt_t *stmt) {
 
 	-- e->returns;
 	return e->return_;
+}
+
+static value_t eval_expr_call(env_t *e, expr_t *expr) {
+	expr_call_t *call = &expr->as.call;
+	value_t to_call = eval_expr(e, call->expr);
+	switch (to_call.type) {
+	case VALUE_TYPE_NAT: return to_call.as.nat(e, expr);
+	case VALUE_TYPE_FUN: {
+		expr_fun_t *fun = (expr_fun_t*)to_call.as.fun;
+
+		value_t evaled[CALL_ARGS_CAPACITY];
+		for (size_t i = 0; i < fun->args_count; ++ i)
+			evaled[i] = eval_expr(e, call->args[i]);
+
+		env_scope_begin(e);
+
+		for (size_t i = 0; i < fun->args_count; ++ i) {
+			var_t *var = env_new_var(e, fun->args[i]);
+			var->val = evaled[i];
+		}
+
+		value_t val = eval_with_return(e, fun->body);
+
+		env_scope_end(e);
+		return val;
+	}
+
+	default: wrong_type(expr->where, to_call.type, "'()' operation");
+	}
+
+	return value_nil();
+}
+
+static value_t eval_expr_id(env_t *e, expr_t *expr) {
+	var_t *var = env_get_var(e, expr->as.id.name);
+	if (var == NULL)
+		undefined(expr->where, expr->as.id.name);
+
+	return var->val;
 }
 
 static value_t eval_expr_do(env_t *e, expr_t *expr) {
@@ -880,28 +932,11 @@ static value_t eval_expr(env_t *e, expr_t *expr) {
 static void eval_stmt_let(env_t *e, stmt_t *stmt) {
 	stmt_let_t *let = &stmt->as.let;
 
-	size_t idx = -1;
-	for (size_t i = 0; i < e->scope->vars_count; ++ i) {
-		if (e->scope->vars[i].name == NULL) {
-			if (idx == (size_t)-1)
-				idx = i;
-		} else if (strcmp(e->scope->vars[i].name, let->name) == 0)
-			error(stmt->where, "Variable '%s' redeclared", let->name);
-	}
+	var_t *var = env_new_var(e, let->name);
+	if (var == NULL)
+		error(stmt->where, "Variable '%s' redeclared", let->name);
 
-	if (idx == (size_t)-1) {
-		if (e->scope->vars_count >= e->scope->vars_cap) {
-			e->scope->vars_cap *= 2;
-			e->scope->vars = (var_t*)realloc(e->scope->vars, e->scope->vars_cap * sizeof(var_t));
-			if (e->scope->vars == NULL)
-				UNREACHABLE("realloc() fail");
-		}
-
-		idx = e->scope->vars_count ++;
-	}
-
-	e->scope->vars[idx].name = let->name;
-	e->scope->vars[idx].val  = let->val == NULL? value_nil() : eval_expr(e, let->val);
+	var->val = let->val == NULL? value_nil() : eval_expr(e, let->val);
 
 	if (let->next != NULL)
 		eval_stmt_let(e, let->next);

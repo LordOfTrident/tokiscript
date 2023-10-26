@@ -1,4 +1,4 @@
-# TODO (58% done)
+# TODO (64% done)
 - [X] Basic "Hello, world!"
 - [X] Expressions
 - [X] Variables
@@ -9,7 +9,7 @@
 - [X] Scopes
 - [X] Do blocks, return
 - [X] Defer
-- [ ] Functions
+- [X] Functions
 - [ ] Lists, indexing
 - [ ] Objects/structures
 - [ ] Maps

@@ -3,6 +3,13 @@
 # 	return a + b
 # end
 
+println(println)
+
+(println)("Testing")
+
 let add = fun(a, b)
 	return a + b
 end
+
+println(add)
+println(add(5, 10))

@@ -40,8 +40,8 @@ typedef enum {
 #define CALL_ARGS_CAPACITY 32
 
 struct expr_call {
-	char   *name;
-	expr_t *args[32];
+	expr_t *expr;
+	expr_t *args[CALL_ARGS_CAPACITY];
 	size_t  args_count;
 };
 
