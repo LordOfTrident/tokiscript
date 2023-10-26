@@ -92,6 +92,35 @@ static expr_t *parse_expr_str(parser_t *p) {
 	return expr;
 }
 
+static expr_t *parse_expr_fmt(parser_t *p) {
+	expr_t *expr = expr_new();
+	expr->where  = p->tok.where;
+	expr->type   = EXPR_TYPE_FMT;
+
+	expr->as.fmt.str = p->tok.data;
+	parser_advance(p);
+
+	if (p->tok.type != TOKEN_TYPE_LPAREN)
+		error(p->tok.where, "Expected '(', got '%s'", token_type_to_cstr(p->tok.type));
+
+	parser_skip(p);
+	while (p->tok.type != TOKEN_TYPE_RPAREN) {
+		assert(expr->as.fmt.args_count < ARGS_CAPACITY);
+
+		expr->as.fmt.args[expr->as.fmt.args_count ++] = parse_expr(p);
+
+		if (p->tok.type == TOKEN_TYPE_RPAREN)
+			break;
+		else if (p->tok.type != TOKEN_TYPE_COMMA)
+			error(p->tok.where, "Expected ',', got '%s'", token_type_to_cstr(p->tok.type));
+
+		parser_skip(p);
+	}
+
+	parser_skip(p);
+	return expr;
+}
+
 static expr_t *parse_expr_num(parser_t *p) {
 	expr_t *expr = new_value_expr(p->tok.where);
 	expr->as.val.type   = VALUE_TYPE_NUM;
@@ -143,7 +172,7 @@ static expr_t *parse_expr_fun(parser_t *p) {
 
 	parser_skip(p);
 	while (p->tok.type != TOKEN_TYPE_RPAREN) {
-		assert(expr->as.fun.args_count < CALL_ARGS_CAPACITY);
+		assert(expr->as.fun.args_count < ARGS_CAPACITY);
 
 		if (p->tok.type != TOKEN_TYPE_ID)
 			error(p->tok.where, "Expected argument name, got '%s'",
@@ -185,6 +214,7 @@ static expr_t *parse_expr_factor(parser_t *p) {
 	case TOKEN_TYPE_TRUE: return parse_expr_bool(p);
 	case TOKEN_TYPE_ID:   return parse_expr_id(p);
 	case TOKEN_TYPE_STR:  return parse_expr_str(p);
+	case TOKEN_TYPE_FMT:  return parse_expr_fmt(p);
 	case TOKEN_TYPE_NUM:  return parse_expr_num(p);
 	case TOKEN_TYPE_NIL:  return parse_expr_nil(p);
 	case TOKEN_TYPE_LPAREN: {
@@ -210,8 +240,34 @@ static expr_t *parse_expr_factor(parser_t *p) {
 	return NULL;
 }
 
-static expr_t *parse_expr_call(parser_t *p) {
+static expr_t *parse_expr_idx(parser_t *p) {
 	expr_t *expr = parse_expr_factor(p);
+
+	if (p->tok.type == TOKEN_TYPE_LSQUARE) {
+		expr_t *idx      = expr_new();
+		idx->where       = p->tok.where;
+		idx->type        = EXPR_TYPE_IDX;
+		idx->as.idx.expr = expr;
+
+		parser_skip(p);
+		idx->as.idx.start = parse_expr(p);
+
+		if (p->tok.type == TOKEN_TYPE_COMMA) {
+			parser_skip(p);
+			idx->as.idx.end = parse_expr(p);
+		}
+
+		if (p->tok.type != TOKEN_TYPE_RSQUARE)
+			error(p->tok.where, "Expected matching ']', got '%s'", token_type_to_cstr(p->tok.type));
+
+		parser_skip(p);
+		return idx;
+	} else
+		return expr;
+}
+
+static expr_t *parse_expr_call(parser_t *p) {
+	expr_t *expr = parse_expr_idx(p);
 
 	if (p->tok.type == TOKEN_TYPE_LPAREN) {
 		expr_t *call       = expr_new();
@@ -221,7 +277,7 @@ static expr_t *parse_expr_call(parser_t *p) {
 
 		parser_skip(p);
 		while (p->tok.type != TOKEN_TYPE_RPAREN) {
-			assert(call->as.call.args_count < CALL_ARGS_CAPACITY);
+			assert(call->as.call.args_count < ARGS_CAPACITY);
 
 			call->as.call.args[call->as.call.args_count ++] = parse_expr(p);
 

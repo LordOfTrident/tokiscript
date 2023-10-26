@@ -16,6 +16,8 @@ typedef struct expr_bin_op expr_bin_op_t;
 typedef struct expr_un_op  expr_un_op_t;
 typedef struct expr_do     expr_do_t;
 typedef struct expr_fun    expr_fun_t;
+typedef struct expr_idx    expr_idx_t;
+typedef struct expr_fmt    expr_fmt_t;
 
 typedef struct stmt        stmt_t;
 typedef struct stmt_let    stmt_let_t;
@@ -34,15 +36,17 @@ typedef enum {
 	EXPR_TYPE_UN_OP,
 	EXPR_TYPE_DO,
 	EXPR_TYPE_FUN,
+	EXPR_TYPE_IDX,
+	EXPR_TYPE_FMT,
 
 	EXPR_TYPE_COUNT,
 } expr_type_t;
 
-#define CALL_ARGS_CAPACITY 32
+#define ARGS_CAPACITY 32
 
 struct expr_call {
 	expr_t *expr;
-	expr_t *args[CALL_ARGS_CAPACITY];
+	expr_t *args[ARGS_CAPACITY];
 	size_t  args_count;
 };
 
@@ -103,9 +107,19 @@ struct expr_do {
 };
 
 struct expr_fun {
-	char   *args[32];
+	char   *args[ARGS_CAPACITY];
 	size_t  args_count;
 	stmt_t *body;
+};
+
+struct expr_idx {
+	expr_t *expr, *start, *end;
+};
+
+struct expr_fmt {
+	char   *str;
+	expr_t *args[ARGS_CAPACITY];
+	size_t  args_count;
 };
 
 struct expr {
@@ -120,10 +134,12 @@ struct expr {
 		expr_un_op_t  un_op;
 		expr_do_t     do_;
 		expr_fun_t    fun;
+		expr_idx_t    idx;
+		expr_fmt_t    fmt;
 	} as;
 };
 
-static_assert(EXPR_TYPE_COUNT == 7); /* Add new expressions to union */
+static_assert(EXPR_TYPE_COUNT == 9); /* Add new expressions to union */
 
 typedef enum {
 	STMT_TYPE_EXPR = 0,

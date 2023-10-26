@@ -11,6 +11,13 @@ rules:
         rules:
             - constant.specialChar: "\\\\[\"0abefnrtv\\\\]"
 
+    - constant.string:
+        start: "'"
+        end:   "'"
+        skip:  "\\\\."
+        rules:
+            - constant.specialChar: "\\\\[\"0abefnrtv\\\\]"
+
     - constant.number: "\\b([0-9\\.]+)\\b"
 
     - constant.bool: "(\\b(true|false|nil)\\b)"

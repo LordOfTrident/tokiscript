@@ -161,6 +161,7 @@ static value_t builtin_len(env_t *e, expr_t *expr) {
 	if (call->args_count != 1)
 		wrong_arg_count(expr->where, call->args_count, 1);
 
+	/* TODO: Make length be stored with the string pointer, so its faster */
 	value_t val = eval_expr(e, call->args[0]);
 	switch (val.type) {
 	case VALUE_TYPE_STR: return value_num(strlen(val.as.str));
@@ -423,7 +424,7 @@ static value_t eval_expr_call(env_t *e, expr_t *expr) {
 	case VALUE_TYPE_FUN: {
 		expr_fun_t *fun = (expr_fun_t*)to_call.as.fun;
 
-		value_t evaled[CALL_ARGS_CAPACITY];
+		value_t evaled[ARGS_CAPACITY];
 		for (size_t i = 0; i < fun->args_count; ++ i)
 			evaled[i] = eval_expr(e, call->args[i]);
 
@@ -441,6 +442,143 @@ static value_t eval_expr_call(env_t *e, expr_t *expr) {
 	}
 
 	default: wrong_type(expr->where, to_call.type, "'()' operation");
+	}
+
+	return value_nil();
+}
+
+static value_t eval_expr_fmt(env_t *e, expr_t *expr) {
+	expr_fmt_t *fmt = &expr->as.fmt;
+
+	size_t cap = 64, size = 0;
+	char *str = (char*)malloc(cap);
+	if (str == NULL)
+		UNREACHABLE("malloc() fail");
+
+	*str = '\0';
+	size_t arg  = 0;
+	char   prev = '\0';
+	for (size_t i = 0; i < strlen(fmt->str); ++ i) {
+		char    buf[64] = {0};
+		const char *add = NULL;
+
+		if (prev != '%' && fmt->str[i] == '%' && fmt->str[i + 1] == 'v') {
+			if (arg >= fmt->args_count)
+				error(expr->where, "Unexpected string format at index %i", (int)i);
+
+			value_t value = eval_expr(e, fmt->args[arg ++]);
+
+			switch (value.type) {
+			case VALUE_TYPE_NAT: add = "(native)"; break;
+			case VALUE_TYPE_FUN:
+				sprintf(buf, "(fun %p)", (void*)value.as.fun);
+				add = buf;
+				break;
+
+			case VALUE_TYPE_NIL:  add = "(nil)";      break;
+			case VALUE_TYPE_STR:  add = value.as.str; break;
+			case VALUE_TYPE_BOOL: add = value.as.bool_? "true" : "false"; break;
+			case VALUE_TYPE_NUM:
+				double_to_str(value.as.num, buf, sizeof(buf));
+				add = buf;
+				break;
+
+			default: UNREACHABLE("Unknown value type");
+			}
+
+			++ i;
+		} else {
+			buf[0] = fmt->str[i];
+			buf[1] = '\0';
+			add = buf;
+		}
+
+		size_t len = strlen(add);
+
+		size += len;
+		if (size + 1 >= cap) {
+			do {
+				cap *= 2;
+			} while (size + 1 >= cap);
+
+			str = (char*)realloc(str, cap);
+			if (str == NULL)
+				UNREACHABLE("realloc() fail");
+		}
+
+		strcat(str, add);
+		prev = fmt->str[i];
+	}
+
+	if (arg < fmt->args_count)
+		error(fmt->args[arg]->where, "Unexpected format argument");
+
+	return value_str(str);
+}
+
+static value_t eval_expr_idx(env_t *e, expr_t *expr) {
+	expr_idx_t *idx = &expr->as.idx;
+	value_t to_idx = eval_expr(e, idx->expr);
+
+	if (idx->end != NULL) {
+		value_t start = eval_expr(e, idx->start);
+		if (start.type != VALUE_TYPE_NUM)
+			wrong_type(expr->where, start.type, "'[]' operation start index");
+
+		int startPos = (int)start.as.num;
+		if (startPos < 0)
+			error(expr->where, "Negative start index is not allowed");
+
+		value_t end = eval_expr(e, idx->end);
+		if (end.type != VALUE_TYPE_NUM)
+			wrong_type(expr->where, end.type, "'[]' operation end index");
+
+		int endPos = (int)end.as.num;
+		if (endPos < 0)
+			error(expr->where, "Negative end index is not allowed");
+
+		if (startPos > endPos) {
+			int tmp  = endPos;
+			endPos   = startPos;
+			startPos = tmp;
+		}
+
+		switch (to_idx.type) {
+		case VALUE_TYPE_STR: {
+			size_t len = strlen(to_idx.as.str);
+			if ((size_t)startPos >= len)
+				error(expr->where, "Start index exceeds string length");
+			else if ((size_t)endPos >= len)
+				error(expr->where, "End index exceeds string length");
+
+			/* Very lazy */
+			char *buf = strcpy_to_heap(to_idx.as.str + startPos);
+			buf[endPos - startPos] = '\0';
+			return value_str(buf);
+		}
+
+		default: wrong_type(expr->where, to_idx.type, "'[]' operation");
+		}
+	} else {
+		value_t val = eval_expr(e, idx->start);
+		if (val.type != VALUE_TYPE_NUM)
+			wrong_type(expr->where, val.type, "'[]' operation index");
+
+		int pos = (int)val.as.num;
+		if (pos < 0)
+			error(expr->where, "Negative index is not allowed");
+
+		switch (to_idx.type) {
+		case VALUE_TYPE_STR: {
+			if ((size_t)pos >= strlen(to_idx.as.str))
+				error(expr->where, "Index exceeds string length");
+
+			char buf[] = {to_idx.as.str[pos], '\0'};
+			return value_str(strcpy_to_heap(buf));
+		}
+
+		default: wrong_type(expr->where, to_idx.type, "'[]' operation");
+		}
 	}
 
 	return value_nil();
@@ -920,6 +1058,8 @@ static value_t eval_expr_un_op(env_t *e, expr_t *expr) {
 static value_t eval_expr(env_t *e, expr_t *expr) {
 	switch (expr->type) {
 	case EXPR_TYPE_CALL:   return eval_expr_call(  e, expr);
+	case EXPR_TYPE_FMT:    return eval_expr_fmt(   e, expr);
+	case EXPR_TYPE_IDX:    return eval_expr_idx(   e, expr);
 	case EXPR_TYPE_ID:     return eval_expr_id(    e, expr);
 	case EXPR_TYPE_DO:     return eval_expr_do(    e, expr);
 	case EXPR_TYPE_FUN:    return eval_expr_fun(   e, expr);

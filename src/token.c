@@ -12,6 +12,7 @@ static const char *token_type_to_cstr_map[TOKEN_TYPE_COUNT] = {
 
 	[TOKEN_TYPE_ID]  = "identifier",
 	[TOKEN_TYPE_STR] = "string",
+	[TOKEN_TYPE_FMT] = "format",
 	[TOKEN_TYPE_NUM] = "decimal number",
 	[TOKEN_TYPE_NIL] = "nil",
 
@@ -68,7 +69,7 @@ static const char *token_type_to_cstr_map[TOKEN_TYPE_COUNT] = {
 	[TOKEN_TYPE_ERR] = "error",
 };
 
-static_assert(TOKEN_TYPE_COUNT == 49); /* Add the new token type to the map */
+static_assert(TOKEN_TYPE_COUNT == 50); /* Add the new token type to the map */
 
 bool token_type_is_bin_op(token_type_t type) {
 	switch (type) {

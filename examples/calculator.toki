@@ -45,9 +45,7 @@ fun repl()
 			let result = perform(a, b, op)
 			println("(out)", a, op, b, "=", result)
 		else
-			print("(err) Unknown operation \"")
-			print(op)
-			println("\", try \"help\"")
+			println('(err) Unknown operation "%v", try "help"'(op))
 		end
 	end
 end

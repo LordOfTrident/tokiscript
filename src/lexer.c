@@ -85,11 +85,12 @@ static token_t lex_id(lexer_t *l) {
 	return token_new(strcpy_to_heap(l->tok), type, start);
 }
 
-static token_t lex_str(lexer_t *l) {
+static token_t lex_str(lexer_t *l, token_type_t type) {
 	where_t start = l->where;
 
+	char end    = l->ch;
 	bool escape = false;
-	for (lexer_advance(l); l->ch != '"' || escape; lexer_advance(l)) {
+	for (lexer_advance(l); l->ch != end || escape; lexer_advance(l)) {
 		switch (l->ch) {
 		case EOF: case '\n': return token_new_err("String exceeds line", l->where);
 
@@ -128,7 +129,7 @@ static token_t lex_str(lexer_t *l) {
 	}
 
 	lexer_advance(l);
-	return token_new(strcpy_to_heap(l->tok), TOKEN_TYPE_STR, start);
+	return token_new(strcpy_to_heap(l->tok), type, start);
 }
 
 static token_t lex_num(lexer_t *l) {
@@ -289,7 +290,8 @@ token_t lexer_next(lexer_t *l) {
 		case '/': return lex_slash(l);
 		case '=': return lex_equals(l);
 
-		case '"': return lex_str(l);
+		case '"':  return lex_str(l, TOKEN_TYPE_STR);
+		case '\'': return lex_str(l, TOKEN_TYPE_FMT);
 
 		case '#': lexer_skip_comment(l); break;
 

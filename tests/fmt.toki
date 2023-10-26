@@ -1,0 +1,4 @@
+let subject  = "world"
+let question = "How are you"
+
+println('Hello, %v! %v?'(subject, question))

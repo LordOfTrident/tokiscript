@@ -37,6 +37,19 @@ void expr_free(expr_t *expr) {
 		stmt_free(expr->as.do_.body);
 		break;
 
+	case EXPR_TYPE_IDX:
+		expr_free(expr->as.idx.expr);
+		expr_free(expr->as.idx.start);
+		expr_free(expr->as.idx.end);
+		break;
+
+	case EXPR_TYPE_FMT:
+		for (size_t i = 0; i < expr->as.fmt.args_count; ++ i)
+			expr_free(expr->as.fmt.args[i]);
+
+		free(expr->as.fmt.str);
+		break;
+
 	case EXPR_TYPE_FUN:
 		for (size_t i = 0; i < expr->as.fun.args_count; ++ i)
 			free(expr->as.fun.args[i]);
@@ -47,7 +60,7 @@ void expr_free(expr_t *expr) {
 	default: break;
 	}
 
-	static_assert(EXPR_TYPE_COUNT == 7); /* Add code to free new expressions */
+	static_assert(EXPR_TYPE_COUNT == 9); /* Add code to free new expressions */
 
 	free(expr);
 }

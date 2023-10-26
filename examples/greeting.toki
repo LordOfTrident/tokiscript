@@ -1,0 +1,12 @@
+fun greet(subject, question, func)
+	func('Hello, %v! %v?'(subject, question))
+end
+
+greet("world", "How are you", println)
+
+greet("moon",  "What are you doing", fun(msg)
+	for let i = 0; i < len(msg); i ++ 1
+		print('%v '(msg[i]))
+	end
+	println()
+end)
