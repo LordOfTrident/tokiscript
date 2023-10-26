@@ -16,7 +16,7 @@ rules:
     - constant.bool: "(\\b(true|false|nil)\\b)"
 
     - symbol.operator: "[=\\+\\-\\*/^><%]"
-    - special: "\\b(println|print|len|readnum|readstr|exit|panic|platform|argc|argat|getenv|setenv|strtonum|numtostr)\\b"
+    - special: "\\b(println|print|len|readnum|readstr|exit|panic|platform|argc|argat|getenv|strtonum|numtostr)\\b"
 
     - comment:
         start: "#"

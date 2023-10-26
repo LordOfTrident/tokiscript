@@ -323,6 +323,23 @@ static value_t builtin_numtostr(env_t *e, expr_t *expr) {
 	return value_str(strcpy_to_heap(buf));
 }
 
+static value_t builtin_getenv(env_t *e, expr_t *expr) {
+	expr_call_t *call = &expr->as.call;
+
+	if (call->args_count != 1)
+		wrong_arg_count(expr->where, call->args_count, 1);
+
+	value_t val = eval_expr(e, call->args[0]);
+	if (val.type != VALUE_TYPE_STR)
+		wrong_type(expr->where, val.type, "'getenv' function");
+
+	char *str = getenv(val.as.str);
+	if (str == NULL)
+		return value_nil();
+	else
+		return value_str(str);
+}
+
 static builtin_t builtins[] = {
 	{.name = "println",  .func = builtin_println},
 	{.name = "print",    .func = builtin_print},
@@ -337,6 +354,7 @@ static builtin_t builtins[] = {
 	{.name = "argat",    .func = builtin_argat},
 	{.name = "strtonum", .func = builtin_strtonum},
 	{.name = "numtostr", .func = builtin_numtostr},
+	{.name = "getenv",   .func = builtin_getenv},
 };
 
 static value_t eval_expr_call(env_t *e, expr_t *expr) {
