@@ -530,14 +530,14 @@ static value_t eval_expr_idx(env_t *e, expr_t *expr) {
 			error(expr->where, "Negative start index is not allowed");
 
 		value_t end = eval_expr(e, idx->end);
-		if (end.type != VALUE_TYPE_NUM)
+		if (end.type != VALUE_TYPE_NUM && end.type != VALUE_TYPE_NIL)
 			wrong_type(expr->where, end.type, "'[]' operation end index");
 
-		int endPos = (int)end.as.num;
+		int endPos = end.type == VALUE_TYPE_NIL? 0 : (int)end.as.num;
 		if (endPos < 0)
 			error(expr->where, "Negative end index is not allowed");
 
-		if (startPos > endPos) {
+		if (end.type != VALUE_TYPE_NIL && startPos > endPos) {
 			int tmp  = endPos;
 			endPos   = startPos;
 			startPos = tmp;
@@ -553,7 +553,8 @@ static value_t eval_expr_idx(env_t *e, expr_t *expr) {
 
 			/* Very lazy */
 			char *buf = strcpy_to_heap(to_idx.as.str + startPos);
-			buf[endPos - startPos] = '\0';
+			if (end.type != VALUE_TYPE_NIL)
+				buf[endPos - startPos] = '\0';
 			return value_str(buf);
 		}
 

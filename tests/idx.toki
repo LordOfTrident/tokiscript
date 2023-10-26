@@ -3,3 +3,5 @@ let str = "Hello, world!", strLen = len(str)
 for let i = 0; i < strLen; i ++ 1
 	println(str[i])
 end
+
+println(str[7, nil])
