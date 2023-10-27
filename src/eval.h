@@ -5,6 +5,7 @@
 #include <string.h> /* strcmp, strlen, memset */
 #include <assert.h> /* static_assert */
 #include <math.h>   /* pow */
+#include <time.h>   /* time */
 
 #include "error.h"
 #include "parser.h"
@@ -46,7 +47,7 @@ typedef struct {
 	builtin_func_t func;
 } builtin_t;
 
-#define BUILTINS_COUNT 15
+#define BUILTINS_COUNT 17
 extern builtin_t builtins[BUILTINS_COUNT];
 
 void env_init(  env_t *e, int argc, const char **argv);

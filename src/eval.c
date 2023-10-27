@@ -74,6 +74,8 @@ static var_t *env_get_var(env_t *e, char *name) {
 void env_init(env_t *e, int argc, const char **argv) {
 	memset(e, 0, sizeof(*e));
 
+	srand(rand() % time(NULL));
+
 	e->argc = argc;
 	e->argv = argv;
 
@@ -401,6 +403,41 @@ static value_t builtin_type(env_t *e, expr_t *expr) {
 	return value_str((char*)value_type_to_cstr(eval_expr(e, call->args[0]).type));
 }
 
+static value_t builtin_repeat(env_t *e, expr_t *expr) {
+	expr_call_t *call = &expr->as.call;
+
+	if (call->args_count != 2)
+		wrong_arg_count(expr->where, call->args_count, 2);
+
+	value_t str = eval_expr(e, call->args[0]);
+	if (str.type != VALUE_TYPE_STR)
+		wrong_type(expr->where, str.type, "'repeat' function argument #1");
+
+	value_t n = eval_expr(e, call->args[1]);
+	if (n.type != VALUE_TYPE_NUM)
+		wrong_type(expr->where, n.type, "'repeat' function argument #2");
+
+	char *repeated = (char*)malloc(strlen(str.as.str) * (int)n.as.num + 1);
+	if (repeated == NULL)
+		UNREACHABLE("malloc() fail");
+
+	*repeated = '\0';
+	for (int i = 0; i < (int)n.as.num; ++ i)
+		strcat(repeated, str.as.str);
+
+	return value_str(repeated);
+}
+
+static value_t builtin_rand(env_t *e, expr_t *expr) {
+	UNUSED(e);
+	expr_call_t *call = &expr->as.call;
+
+	if (call->args_count != 0)
+		wrong_arg_count(expr->where, call->args_count, 0);
+
+	return value_num(rand());
+}
+
 builtin_t builtins[BUILTINS_COUNT] = {
 	{.name = "println",  .func = builtin_println},
 	{.name = "print",    .func = builtin_print},
@@ -417,9 +454,11 @@ builtin_t builtins[BUILTINS_COUNT] = {
 	{.name = "numtostr", .func = builtin_numtostr},
 	{.name = "getenv",   .func = builtin_getenv},
 	{.name = "type",     .func = builtin_type},
+	{.name = "repeat",   .func = builtin_repeat},
+	{.name = "rand",     .func = builtin_rand},
 };
 
-static_assert(BUILTINS_COUNT == 15); /* Update builtins count */
+static_assert(BUILTINS_COUNT == 17); /* Update builtins count */
 
 static value_t eval_with_return(env_t *e, stmt_t *stmt) {
 	++ e->returns;
@@ -440,6 +479,9 @@ static value_t eval_expr_call(env_t *e, expr_t *expr) {
 	case VALUE_TYPE_NAT: return to_call.as.nat(e, expr);
 	case VALUE_TYPE_FUN: {
 		expr_fun_t *fun = (expr_fun_t*)to_call.as.fun;
+
+		if (fun->args_count != call->args_count)
+			error(expr->where, "Incorrect amount of arguments in function call");
 
 		value_t evaled[ARGS_CAPACITY];
 		for (size_t i = 0; i < fun->args_count; ++ i)
@@ -765,21 +807,40 @@ static value_t eval_expr_bin_op_less_equ(env_t *e, expr_t *expr) {
 static value_t eval_expr_bin_op_assign(env_t *e, expr_t *expr) {
 	expr_bin_op_t *bin_op = &expr->as.bin_op;
 
-	if (bin_op->left->type != EXPR_TYPE_ID)
+	if (bin_op->left->type == EXPR_TYPE_IDX) {
+		value_t val = eval_expr(e, bin_op->right);
+
+		expr_idx_t *idx = &bin_op->left->as.idx;
+		if (idx->end != NULL)
+			error(expr->where, "Cannot assign to a slice");
+
+		value_t pos = eval_expr(e, idx->start);
+		if (pos.type != VALUE_TYPE_NUM)
+			wrong_type(expr->where, pos.type, "'[]' operation index");
+
+		value_t arr = eval_expr(e, idx->expr);
+		if (arr.type != VALUE_TYPE_ARR)
+			error(expr->where, "Index assignment only allowed with arrays");
+
+		arr.as.arr.buf[(int)pos.as.num] = val;
+		return val;
+	} else if (bin_op->left->type == EXPR_TYPE_ID) {
+		char *name = bin_op->left->as.id.name;
+
+		value_t val = eval_expr(e, bin_op->right);
+		var_t *var  = env_get_var(e, name);
+		if (var == NULL)
+			undefined(expr->where, name);
+
+		if (var->const_)
+			error(expr->where, "Attempt to assign to constant '%s'", name);
+
+		var->val = val;
+		return val;
+	} else
 		error(expr->where, "left side of '=' expected variable");
 
-	char *name = bin_op->left->as.id.name;
-
-	value_t val = eval_expr(e, bin_op->right);
-	var_t *var  = env_get_var(e, name);
-	if (var == NULL)
-		undefined(expr->where, name);
-
-	if (var->const_)
-		error(expr->where, "Attempt to assign to constant '%s'", name);
-
-	var->val = val;
-	return val;
+	return value_nil();
 }
 
 static value_t eval_expr_bin_op_inc(env_t *e, expr_t *expr) {
@@ -986,7 +1047,7 @@ static value_t eval_expr_bin_op_mod(env_t *e, expr_t *expr) {
 	if (right.as.num == 0)
 		error(expr->where, "division by zero");
 
-	float remainder = left.as.num / right.as.num;
+	double remainder = left.as.num / right.as.num;
 	left.as.num = right.as.num * (remainder - floor(remainder));
 	return left;
 }

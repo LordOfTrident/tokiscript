@@ -1,0 +1,32 @@
+let matrix = [
+	[0, 0, 0, 0],
+	[0, 0, 0, 0],
+	[0, 0, 0, 0],
+	[0, 0, 0, 0],
+]
+
+# Initialize the list with random values from 0 to 20
+for let i = 0; i < len(matrix); i ++ 1
+	for let j = 0; j < len(matrix[i]); j ++ 1
+		matrix[i][j] = rand() % 21
+	end
+end
+
+fun printList(list, indent)
+	print(repeat(" ", indent * 4))
+	println("[")
+
+	for let i = 0; i < len(list); i ++ 1
+		if type(list[i]) == "array"
+			printList(list[i], indent + 1)
+		else
+			print(repeat(" ", (indent + 1) * 4))
+			println(list[i])
+		end
+	end
+
+	print(repeat(" ", indent * 4))
+	println("]")
+end
+
+printList(matrix, 0)

@@ -23,7 +23,7 @@ rules:
     - constant.bool: "(\\b(true|false|nil)\\b)"
 
     - symbol.operator: "[=\\+\\-\\*/^><%]"
-    - special: "\\b(println|print|len|readnum|readstr|exit|panic|platform|argc|argat|getenv|strtonum|numtostr|type)\\b"
+    - special: "\\b(println|print|len|readnum|readstr|exit|panic|platform|argc|argat|getenv|strtonum|numtostr|type|repeat|rand)\\b"
 
     - comment:
         start: "#"

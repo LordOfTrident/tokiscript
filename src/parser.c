@@ -278,7 +278,7 @@ static expr_t *parse_expr_factor(parser_t *p) {
 static expr_t *parse_expr_idx(parser_t *p) {
 	expr_t *expr = parse_expr_factor(p);
 
-	if (p->tok.type == TOKEN_TYPE_LSQUARE) {
+	while (p->tok.type == TOKEN_TYPE_LSQUARE) {
 		expr_t *idx      = expr_new();
 		idx->where       = p->tok.where;
 		idx->type        = EXPR_TYPE_IDX;
@@ -296,9 +296,10 @@ static expr_t *parse_expr_idx(parser_t *p) {
 			error(p->tok.where, "Expected matching ']', got '%s'", token_type_to_cstr(p->tok.type));
 
 		parser_skip(p);
-		return idx;
-	} else
-		return expr;
+		expr = idx;
+	}
+
+	return expr;
 }
 
 static expr_t *parse_expr_call(parser_t *p) {
