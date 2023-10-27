@@ -1,4 +1,4 @@
-# TODO (68% done)
+# TODO (65% done)
 - [X] Basic "Hello, world!"
 - [X] Expressions
 - [X] Variables
@@ -12,6 +12,7 @@
 - [X] Functions
 - [X] Lists, indexing
 - [X] File IO
+- [ ] Garbage collection
 - [ ] Eval function
 - [ ] Objects/structures
 - [ ] Maps

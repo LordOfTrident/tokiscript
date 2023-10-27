@@ -79,6 +79,12 @@
 	},
 	{
 		"type": "task",
+		"title": "Garbage collection",
+		"desc": null,
+		"done": false
+	},
+	{
+		"type": "task",
 		"title": "Eval function",
 		"desc": null,
 		"done": false
