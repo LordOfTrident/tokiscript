@@ -980,96 +980,223 @@ static value_t eval_expr_bin_op_assign(env_t *e, expr_t *expr) {
 static value_t eval_expr_bin_op_inc(env_t *e, expr_t *expr) {
 	expr_bin_op_t *bin_op = &expr->as.bin_op;
 
-	if (bin_op->left->type != EXPR_TYPE_ID)
+	if (bin_op->left->type == EXPR_TYPE_IDX) {
+		value_t val = eval_expr(e, bin_op->right);
+
+		expr_idx_t *idx = &bin_op->left->as.idx;
+		if (idx->end != NULL)
+			error(expr->where, "Cannot assign to a slice");
+
+		value_t pos = eval_expr(e, idx->start);
+		if (pos.type != VALUE_TYPE_NUM)
+			wrong_type(expr->where, pos.type, "'[]' operation index");
+
+		if (pos.as.num < 0)
+			error(expr->where, "Negative index is not allowed");
+
+		value_t target = eval_expr(e, idx->expr);
+		if (target.type == VALUE_TYPE_ARR) {
+			if ((size_t)pos.as.num >= target.as.arr.size)
+				error(expr->where, "Index exceeds array length");
+
+			if (val.type != target.as.arr.buf[(int)pos.as.num].type)
+				wrong_type(expr->where, val.type, "'++' assignment");
+
+			if (val.type != VALUE_TYPE_NUM)
+				wrong_type(expr->where, val.type, "left side of '++' assignment");
+
+			target.as.arr.buf[(int)pos.as.num].as.num += val.as.num;
+		} else
+			error(expr->where, "Index assignment only allowed with arrays");
+	} else if (bin_op->left->type == EXPR_TYPE_ID) {
+		char *name = bin_op->left->as.id.name;
+
+		value_t val = eval_expr(e, bin_op->right);
+		var_t *var  = env_get_var(e, name);
+		if (var == NULL)
+			undefined(expr->where, name);
+
+		if (var->val.type == VALUE_TYPE_ARR) {
+			value_t new = value_arr(var->val.as.arr.size + 1);
+			for (size_t i = 0; i < var->val.as.arr.size; ++ i)
+				new.as.arr.buf[i] = var->val.as.arr.buf[i];
+
+			new.as.arr.buf[var->val.as.arr.size] = val;
+			var->val = new;
+			return new;
+		} else {
+			if (val.type != var->val.type)
+				wrong_type(expr->where, val.type, "'++' assignment");
+
+			if (val.type != VALUE_TYPE_NUM)
+				wrong_type(expr->where, val.type, "left side of '++' assignment");
+
+			var->val.as.num += val.as.num;
+			return val;
+		}
+	} else
 		error(expr->where, "left side of '++' expected variable");
 
-	char *name = bin_op->left->as.id.name;
-
-	value_t val = eval_expr(e, bin_op->right);
-	var_t *var  = env_get_var(e, name);
-	if (var == NULL)
-		undefined(expr->where, name);
-
-	if (val.type != var->val.type)
-		wrong_type(expr->where, val.type, "'++' assignment");
-
-	if (val.type != VALUE_TYPE_NUM)
-		wrong_type(expr->where, val.type, "left side of '++' assignment");
-
-	var->val.as.num += val.as.num;
-	return val;
+	return value_nil();
 }
 
 static value_t eval_expr_bin_op_dec(env_t *e, expr_t *expr) {
 	expr_bin_op_t *bin_op = &expr->as.bin_op;
 
-	if (bin_op->left->type != EXPR_TYPE_ID)
+	if (bin_op->left->type == EXPR_TYPE_IDX) {
+		value_t val = eval_expr(e, bin_op->right);
+
+		expr_idx_t *idx = &bin_op->left->as.idx;
+		if (idx->end != NULL)
+			error(expr->where, "Cannot assign to a slice");
+
+		value_t pos = eval_expr(e, idx->start);
+		if (pos.type != VALUE_TYPE_NUM)
+			wrong_type(expr->where, pos.type, "'[]' operation index");
+
+		if (pos.as.num < 0)
+			error(expr->where, "Negative index is not allowed");
+
+		value_t target = eval_expr(e, idx->expr);
+		if (target.type == VALUE_TYPE_ARR) {
+			if ((size_t)pos.as.num >= target.as.arr.size)
+				error(expr->where, "Index exceeds array length");
+
+			if (val.type != target.as.arr.buf[(int)pos.as.num].type)
+				wrong_type(expr->where, val.type, "'--' assignment");
+
+			if (val.type != VALUE_TYPE_NUM)
+				wrong_type(expr->where, val.type, "left side of '--' assignment");
+
+			target.as.arr.buf[(int)pos.as.num].as.num -= val.as.num;
+		} else
+			error(expr->where, "Index assignment only allowed with arrays");
+	} else if (bin_op->left->type == EXPR_TYPE_ID) {
+		char *name = bin_op->left->as.id.name;
+
+		value_t val = eval_expr(e, bin_op->right);
+		var_t *var  = env_get_var(e, name);
+		if (var == NULL)
+			undefined(expr->where, name);
+
+		if (val.type != var->val.type)
+			wrong_type(expr->where, val.type, "'--' assignment");
+
+		if (val.type != VALUE_TYPE_NUM)
+			wrong_type(expr->where, val.type, "left side of '--' assignment");
+
+		var->val.as.num -= val.as.num;
+		return val;
+	} else
 		error(expr->where, "left side of '--' expected variable");
 
-	char *name = bin_op->left->as.id.name;
-
-	value_t val = eval_expr(e, bin_op->right);
-	var_t *var  = env_get_var(e, name);
-	if (var == NULL)
-		undefined(expr->where, name);
-
-	if (val.type != var->val.type)
-		wrong_type(expr->where, val.type, "'--' assignment");
-
-	if (val.type != VALUE_TYPE_NUM)
-		wrong_type(expr->where, val.type, "left side of '--' assignment");
-
-	var->val.as.num -= val.as.num;
-	return val;
+	return value_nil();
 }
 
 static value_t eval_expr_bin_op_xinc(env_t *e, expr_t *expr) {
 	expr_bin_op_t *bin_op = &expr->as.bin_op;
 
-	if (bin_op->left->type != EXPR_TYPE_ID)
+	if (bin_op->left->type == EXPR_TYPE_IDX) {
+		value_t val = eval_expr(e, bin_op->right);
+
+		expr_idx_t *idx = &bin_op->left->as.idx;
+		if (idx->end != NULL)
+			error(expr->where, "Cannot assign to a slice");
+
+		value_t pos = eval_expr(e, idx->start);
+		if (pos.type != VALUE_TYPE_NUM)
+			wrong_type(expr->where, pos.type, "'[]' operation index");
+
+		if (pos.as.num < 0)
+			error(expr->where, "Negative index is not allowed");
+
+		value_t target = eval_expr(e, idx->expr);
+		if (target.type == VALUE_TYPE_ARR) {
+			if ((size_t)pos.as.num >= target.as.arr.size)
+				error(expr->where, "Index exceeds array length");
+
+			if (val.type != target.as.arr.buf[(int)pos.as.num].type)
+				wrong_type(expr->where, val.type, "'**' assignment");
+
+			if (val.type != VALUE_TYPE_NUM)
+				wrong_type(expr->where, val.type, "left side of '**' assignment");
+
+			target.as.arr.buf[(int)pos.as.num].as.num *= val.as.num;
+		} else
+			error(expr->where, "Index assignment only allowed with arrays");
+	} else if (bin_op->left->type == EXPR_TYPE_ID) {
+		char *name = bin_op->left->as.id.name;
+
+		value_t val = eval_expr(e, bin_op->right);
+		var_t *var  = env_get_var(e, name);
+		if (var == NULL)
+			undefined(expr->where, name);
+
+		if (val.type != var->val.type)
+			wrong_type(expr->where, val.type, "'**' assignment");
+
+		if (val.type != VALUE_TYPE_NUM)
+			wrong_type(expr->where, val.type, "left side of '**' assignment");
+
+		var->val.as.num *= val.as.num;
+		return val;
+	} else
 		error(expr->where, "left side of '**' expected variable");
 
-	char *name = bin_op->left->as.id.name;
-
-	value_t val = eval_expr(e, bin_op->right);
-	var_t *var  = env_get_var(e, name);
-	if (var == NULL)
-		undefined(expr->where, name);
-
-	if (val.type != var->val.type)
-		wrong_type(expr->where, val.type, "'**' assignment");
-
-	if (val.type != VALUE_TYPE_NUM)
-		wrong_type(expr->where, val.type, "left side of '**' assignment");
-
-	var->val.as.num *= val.as.num;
-	return val;
+	return value_nil();
 }
 
 static value_t eval_expr_bin_op_xdec(env_t *e, expr_t *expr) {
 	expr_bin_op_t *bin_op = &expr->as.bin_op;
 
-	if (bin_op->left->type != EXPR_TYPE_ID)
+	if (bin_op->left->type == EXPR_TYPE_IDX) {
+		value_t val = eval_expr(e, bin_op->right);
+
+		expr_idx_t *idx = &bin_op->left->as.idx;
+		if (idx->end != NULL)
+			error(expr->where, "Cannot assign to a slice");
+
+		value_t pos = eval_expr(e, idx->start);
+		if (pos.type != VALUE_TYPE_NUM)
+			wrong_type(expr->where, pos.type, "'[]' operation index");
+
+		if (pos.as.num < 0)
+			error(expr->where, "Negative index is not allowed");
+
+		value_t target = eval_expr(e, idx->expr);
+		if (target.type == VALUE_TYPE_ARR) {
+			if ((size_t)pos.as.num >= target.as.arr.size)
+				error(expr->where, "Index exceeds array length");
+
+			if (val.type != target.as.arr.buf[(int)pos.as.num].type)
+				wrong_type(expr->where, val.type, "'//' assignment");
+
+			if (val.type != VALUE_TYPE_NUM)
+				wrong_type(expr->where, val.type, "left side of '//' assignment");
+
+			target.as.arr.buf[(int)pos.as.num].as.num /= val.as.num;
+		} else
+			error(expr->where, "Index assignment only allowed with arrays");
+	} else if (bin_op->left->type == EXPR_TYPE_ID) {
+		char *name = bin_op->left->as.id.name;
+
+		value_t val = eval_expr(e, bin_op->right);
+		var_t *var  = env_get_var(e, name);
+		if (var == NULL)
+			undefined(expr->where, name);
+
+		if (val.type != var->val.type)
+			wrong_type(expr->where, val.type, "'//' assignment");
+
+		if (val.type != VALUE_TYPE_NUM)
+			wrong_type(expr->where, val.type, "left side of '//' assignment");
+
+		var->val.as.num /= val.as.num;
+		return val;
+	} else
 		error(expr->where, "left side of '//' expected variable");
 
-	char *name = bin_op->left->as.id.name;
-
-	value_t val = eval_expr(e, bin_op->right);
-	var_t *var  = env_get_var(e, name);
-	if (var == NULL)
-		undefined(expr->where, name);
-
-	if (val.type != var->val.type)
-		wrong_type(expr->where, val.type, "'//' assignment");
-
-	if (val.type != VALUE_TYPE_NUM)
-		wrong_type(expr->where, val.type, "left side of '//' assignment");
-
-	if (val.as.num == 0)
-		error(expr->where, "division by zero");
-
-	var->val.as.num /= val.as.num;
-	return val;
+	return value_nil();
 }
 
 static value_t eval_expr_bin_op_add(env_t *e, expr_t *expr) {
@@ -1078,7 +1205,7 @@ static value_t eval_expr_bin_op_add(env_t *e, expr_t *expr) {
 	value_t left  = eval_expr(e, bin_op->left);
 	value_t right = eval_expr(e, bin_op->right);
 
-	if (right.type != left.type)
+	if (left.type != VALUE_TYPE_ARR && right.type != left.type)
 		wrong_type(expr->where, right.type,
 		           "right side of '+' operation, expected same as left side");
 
@@ -1093,7 +1220,14 @@ static value_t eval_expr_bin_op_add(env_t *e, expr_t *expr) {
 		left.as.str = concatted;
 	} else if (left.type == VALUE_TYPE_NUM)
 		left.as.num += right.as.num;
-	else
+	else if (left.type == VALUE_TYPE_ARR) {
+		value_t new = value_arr(left.as.arr.size + 1);
+		for (size_t i = 0; i < left.as.arr.size; ++ i)
+			new.as.arr.buf[i] = left.as.arr.buf[i];
+
+		new.as.arr.buf[left.as.arr.size] = right;
+		return new;
+	} else
 		wrong_type(expr->where, left.type, "left side of '+' operation");
 
 	return left;
@@ -1484,13 +1618,16 @@ void eval(env_t *e, stmt_t *program) {
 		case STMT_TYPE_IF:       eval_stmt_if(      e, stmt);          break;
 		case STMT_TYPE_WHILE:    eval_stmt_while(   e, stmt);          break;
 		case STMT_TYPE_FOR:      eval_stmt_for(     e, stmt);          break;
-		case STMT_TYPE_RETURN:   eval_stmt_return(  e, stmt);          return;
-		case STMT_TYPE_BREAK:    eval_stmt_break(   e, stmt);          return;
-		case STMT_TYPE_CONTINUE: eval_stmt_continue(e, stmt);          return;
+		case STMT_TYPE_RETURN:   eval_stmt_return(  e, stmt);          break;
+		case STMT_TYPE_BREAK:    eval_stmt_break(   e, stmt);          break;
+		case STMT_TYPE_CONTINUE: eval_stmt_continue(e, stmt);          break;
 		case STMT_TYPE_DEFER:    eval_stmt_defer(   e, stmt);          break;
 		case STMT_TYPE_FUN:      eval_stmt_fun(     e, stmt);          break;
 
 		default: UNREACHABLE("Unknown statement type");
 		}
+
+		if (e->returning || e->breaking)
+			break;
 	}
 }

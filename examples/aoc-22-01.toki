@@ -1,0 +1,48 @@
+# Rewritten from https://github.com/LordOfTrident/aoc-2022/blob/main/01/part1.pas
+
+fun forEachLine(str, func)
+	while true
+		let pos = "\n" in str, line = str[0, pos]
+
+		func(line)
+
+		if pos == nil
+			break
+		elif pos + 1 >= len(str)
+			break
+		end
+
+		str = str[pos + 1, nil]
+	end
+end
+
+let inputPath
+if argc() > 1
+	inputPath = argat(1)
+else
+	inputPath = "examples/aoc-22-01-input.txt"
+end
+
+let caloriesList = [0]
+let content = freadstr(inputPath)
+if content == nil
+	println('Failed to open file "%v"'(inputPath))
+	exit(1)
+end
+
+forEachLine(content, fun(line)
+	if len(line) == 0
+		caloriesList ++ 0
+	else
+		caloriesList[len(caloriesList) - 1] ++ strtonum(line)
+	end
+end)
+
+let most = 0
+for let i = 0; i < len(caloriesList); i ++ 1
+	if caloriesList[i] > most
+		most = caloriesList[i]
+	end
+end
+
+println(most)
