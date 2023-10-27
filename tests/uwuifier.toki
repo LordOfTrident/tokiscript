@@ -1,0 +1,10 @@
+let str = readstr(">")
+
+for let i = 0; i < len(str); i ++ 1
+	if str[i] == "r" or str[i] == "l"
+		str[i] = "w"
+	end
+end
+
+println()
+println(str)

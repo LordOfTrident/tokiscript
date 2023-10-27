@@ -818,11 +818,29 @@ static value_t eval_expr_bin_op_assign(env_t *e, expr_t *expr) {
 		if (pos.type != VALUE_TYPE_NUM)
 			wrong_type(expr->where, pos.type, "'[]' operation index");
 
-		value_t arr = eval_expr(e, idx->expr);
-		if (arr.type != VALUE_TYPE_ARR)
+		if (pos.as.num < 0)
+			error(expr->where, "Negative index is not allowed");
+
+		value_t target = eval_expr(e, idx->expr);
+		if (target.type == VALUE_TYPE_ARR) {
+			if ((size_t)pos.as.num >= target.as.arr.size)
+				error(expr->where, "Index exceeds array length");
+
+			target.as.arr.buf[(int)pos.as.num] = val;
+		} else if (target.type == VALUE_TYPE_STR) {
+			if ((size_t)pos.as.num >= strlen(target.as.str))
+				error(expr->where, "Index exceeds string length");
+
+			if (val.type != VALUE_TYPE_STR)
+				wrong_type(expr->where, val.type, "string character assignment");
+
+			if (strlen(val.as.str) != 1)
+				error(expr->where, "Expected a single character");
+
+			target.as.str[(int)pos.as.num] = val.as.str[0];
+		} else
 			error(expr->where, "Index assignment only allowed with arrays");
 
-		arr.as.arr.buf[(int)pos.as.num] = val;
 		return val;
 	} else if (bin_op->left->type == EXPR_TYPE_ID) {
 		char *name = bin_op->left->as.id.name;
