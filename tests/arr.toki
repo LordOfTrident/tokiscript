@@ -1,0 +1,36 @@
+let arr = [1, 4 + 5, "helo", 1, 2, 3, 4, 5, 6, 7, 8]
+
+println("Array:", arr)
+println("Length:", len(arr))
+
+print("Elements: ")
+for let i = 0; i < len(arr); i ++ 1
+	if i > 0
+		print(", ")
+	end
+
+	print(arr[i])
+end
+println()
+
+fun searchInArray(search)
+	println('searching "%v" in array: %v'(search, search in arr))
+end
+
+searchInArray("helo")
+searchInArray(4)
+searchInArray("test")
+
+println()
+let slice = arr[("helo" in arr) + 1, nil]
+
+println("Slice length:", len(slice))
+print("Slice elements: ")
+for let i = 0; i < len(slice); i ++ 1
+	if i > 0
+		print(", ")
+	end
+
+	print(slice[i])
+end
+println()

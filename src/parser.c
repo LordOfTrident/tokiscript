@@ -138,6 +138,40 @@ static expr_t *parse_expr_nil(parser_t *p) {
 	return expr;
 }
 
+static expr_t *parse_expr_arr(parser_t *p) {
+	expr_t *expr = expr_new();
+	expr->where  = p->tok.where;
+	expr->type   = EXPR_TYPE_ARR;
+
+	expr->as.arr.cap = ARRAY_CHUNK_SIZE;
+	expr->as.arr.buf = (expr_t**)malloc(expr->as.arr.cap * sizeof(expr_t*));
+	if (expr->as.arr.buf == NULL)
+		UNREACHABLE("malloc() fail");
+
+	parser_skip(p);
+	while (p->tok.type != TOKEN_TYPE_RSQUARE) {
+		if (expr->as.arr.size >= expr->as.arr.cap) {
+			expr->as.arr.cap *= 2;
+			expr->as.arr.buf  = (expr_t**)realloc(expr->as.arr.buf,
+			                                      expr->as.arr.cap * sizeof(expr_t*));
+			if (expr->as.arr.buf == NULL)
+				UNREACHABLE("realloc() fail");
+		}
+
+		expr->as.arr.buf[expr->as.arr.size ++] = parse_expr(p);
+
+		if (p->tok.type == TOKEN_TYPE_RSQUARE)
+			break;
+		else if (p->tok.type != TOKEN_TYPE_COMMA)
+			error(p->tok.where, "Expected ',', got '%s'", token_type_to_cstr(p->tok.type));
+
+		parser_skip(p);
+	}
+
+	parser_skip(p);
+	return expr;
+}
+
 static expr_t *parse_expr_bool(parser_t *p) {
 	expr_t *expr = new_value_expr(p->tok.where);
 	expr->as.val.type     = VALUE_TYPE_BOOL;
@@ -211,12 +245,13 @@ static expr_t *parse_expr_un_op(parser_t *p) {
 static expr_t *parse_expr_factor(parser_t *p) {
 	switch (p->tok.type) {
 	case TOKEN_TYPE_FALSE:
-	case TOKEN_TYPE_TRUE: return parse_expr_bool(p);
-	case TOKEN_TYPE_ID:   return parse_expr_id(p);
-	case TOKEN_TYPE_STR:  return parse_expr_str(p);
-	case TOKEN_TYPE_FMT:  return parse_expr_fmt(p);
-	case TOKEN_TYPE_NUM:  return parse_expr_num(p);
-	case TOKEN_TYPE_NIL:  return parse_expr_nil(p);
+	case TOKEN_TYPE_TRUE:    return parse_expr_bool(p);
+	case TOKEN_TYPE_ID:      return parse_expr_id(p);
+	case TOKEN_TYPE_STR:     return parse_expr_str(p);
+	case TOKEN_TYPE_FMT:     return parse_expr_fmt(p);
+	case TOKEN_TYPE_NUM:     return parse_expr_num(p);
+	case TOKEN_TYPE_NIL:     return parse_expr_nil(p);
+	case TOKEN_TYPE_LSQUARE: return parse_expr_arr(p);
 	case TOKEN_TYPE_LPAREN: {
 		parser_skip(p);
 		expr_t *expr = parse_expr(p);

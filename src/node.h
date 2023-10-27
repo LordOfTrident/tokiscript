@@ -18,6 +18,7 @@ typedef struct expr_do     expr_do_t;
 typedef struct expr_fun    expr_fun_t;
 typedef struct expr_idx    expr_idx_t;
 typedef struct expr_fmt    expr_fmt_t;
+typedef struct expr_arr    expr_arr_t;
 
 typedef struct stmt        stmt_t;
 typedef struct stmt_let    stmt_let_t;
@@ -38,6 +39,7 @@ typedef enum {
 	EXPR_TYPE_FUN,
 	EXPR_TYPE_IDX,
 	EXPR_TYPE_FMT,
+	EXPR_TYPE_ARR,
 
 	EXPR_TYPE_COUNT,
 } expr_type_t;
@@ -122,6 +124,11 @@ struct expr_fmt {
 	size_t  args_count;
 };
 
+struct expr_arr {
+	expr_t **buf;
+	size_t   size, cap;
+};
+
 struct expr {
 	where_t     where;
 	expr_type_t type;
@@ -136,10 +143,11 @@ struct expr {
 		expr_fun_t    fun;
 		expr_idx_t    idx;
 		expr_fmt_t    fmt;
+		expr_arr_t    arr;
 	} as;
 };
 
-static_assert(EXPR_TYPE_COUNT == 9); /* Add new expressions to union */
+static_assert(EXPR_TYPE_COUNT == 10); /* Add new expressions to union */
 
 typedef enum {
 	STMT_TYPE_EXPR = 0,

@@ -1,0 +1,7 @@
+println(type(3.14))
+println(type("hi"))
+println(type(true))
+println(type([1, 3, 5]))
+println(type(fun() end))
+println(type(println))
+println(type(nil))

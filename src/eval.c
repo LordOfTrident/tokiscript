@@ -103,7 +103,8 @@ static value_t eval_expr(env_t *e, expr_t *expr);
 static void fprint_value(value_t value, FILE *file) {
 	switch (value.type) {
 	case VALUE_TYPE_NAT:  fprintf(file, "(native)"); break;
-	case VALUE_TYPE_FUN:  fprintf(file, "(fun %p)", (void*)value.as.fun);        break;
+	case VALUE_TYPE_ARR:  fprintf(file, "(list %p)", (void*)value.as.arr.buf);   break;
+	case VALUE_TYPE_FUN:  fprintf(file, "(fun %p)",  (void*)value.as.fun);       break;
 	case VALUE_TYPE_NIL:  fprintf(file, "(nil)");                                break;
 	case VALUE_TYPE_STR:  fprintf(file, "%s", value.as.str);                     break;
 	case VALUE_TYPE_BOOL: fprintf(file, "%s", value.as.bool_? "true" : "false"); break;
@@ -165,6 +166,7 @@ static value_t builtin_len(env_t *e, expr_t *expr) {
 	value_t val = eval_expr(e, call->args[0]);
 	switch (val.type) {
 	case VALUE_TYPE_STR: return value_num(strlen(val.as.str));
+	case VALUE_TYPE_ARR: return value_num(val.as.arr.size);
 
 	default: wrong_type(expr->where, val.type, "'len' function");
 	}
@@ -258,6 +260,11 @@ static value_t builtin_system(env_t *e, expr_t *expr) {
 		case VALUE_TYPE_NAT: add = "(native)"; break;
 		case VALUE_TYPE_FUN:
 			sprintf(buf, "(fun %p)", (void*)value.as.fun);
+			add = buf;
+			break;
+
+		case VALUE_TYPE_ARR:
+			sprintf(buf, "(list %p)", (void*)value.as.arr.buf);
 			add = buf;
 			break;
 
@@ -385,6 +392,15 @@ static value_t builtin_getenv(env_t *e, expr_t *expr) {
 		return value_str(str);
 }
 
+static value_t builtin_type(env_t *e, expr_t *expr) {
+	expr_call_t *call = &expr->as.call;
+
+	if (call->args_count != 1)
+		wrong_arg_count(expr->where, call->args_count, 1);
+
+	return value_str((char*)value_type_to_cstr(eval_expr(e, call->args[0]).type));
+}
+
 builtin_t builtins[BUILTINS_COUNT] = {
 	{.name = "println",  .func = builtin_println},
 	{.name = "print",    .func = builtin_print},
@@ -400,9 +416,10 @@ builtin_t builtins[BUILTINS_COUNT] = {
 	{.name = "strtonum", .func = builtin_strtonum},
 	{.name = "numtostr", .func = builtin_numtostr},
 	{.name = "getenv",   .func = builtin_getenv},
+	{.name = "type",     .func = builtin_type},
 };
 
-static_assert(BUILTINS_COUNT == 14); /* Update builtins count */
+static_assert(BUILTINS_COUNT == 15); /* Update builtins count */
 
 static value_t eval_with_return(env_t *e, stmt_t *stmt) {
 	++ e->returns;
@@ -447,6 +464,16 @@ static value_t eval_expr_call(env_t *e, expr_t *expr) {
 	return value_nil();
 }
 
+static value_t eval_expr_arr(env_t *e, expr_t *expr) {
+	expr_arr_t *arr = &expr->as.arr;
+
+	value_t val = value_arr(arr->size);
+	for (size_t i = 0; i < arr->size; ++ i)
+		val.as.arr.buf[i] = eval_expr(e, arr->buf[i]);
+
+	return val;
+}
+
 static value_t eval_expr_fmt(env_t *e, expr_t *expr) {
 	expr_fmt_t *fmt = &expr->as.fmt;
 
@@ -472,6 +499,11 @@ static value_t eval_expr_fmt(env_t *e, expr_t *expr) {
 			case VALUE_TYPE_NAT: add = "(native)"; break;
 			case VALUE_TYPE_FUN:
 				sprintf(buf, "(fun %p)", (void*)value.as.fun);
+				add = buf;
+				break;
+
+			case VALUE_TYPE_ARR:
+				sprintf(buf, "(list %p)", (void*)value.as.arr.buf);
 				add = buf;
 				break;
 
@@ -558,6 +590,22 @@ static value_t eval_expr_idx(env_t *e, expr_t *expr) {
 			return value_str(buf);
 		}
 
+		case VALUE_TYPE_ARR: {
+			size_t size = to_idx.as.arr.size;
+			if ((size_t)startPos >= size)
+				error(expr->where, "Start index exceeds array length");
+			else if ((size_t)endPos >= size)
+				error(expr->where, "End index exceeds array length");
+
+			size = end.type == VALUE_TYPE_NIL? size - startPos : (size_t)endPos - startPos;
+
+			value_t val = value_arr(size);
+			for (size_t i = 0; i < val.as.arr.size; ++ i)
+				val.as.arr.buf[i] = to_idx.as.arr.buf[startPos + i];
+
+			return val;
+		}
+
 		default: wrong_type(expr->where, to_idx.type, "'[]' operation");
 		}
 	} else {
@@ -577,6 +625,8 @@ static value_t eval_expr_idx(env_t *e, expr_t *expr) {
 			char buf[] = {to_idx.as.str[pos], '\0'};
 			return value_str(strcpy_to_heap(buf));
 		}
+
+		case VALUE_TYPE_ARR: return to_idx.as.arr.buf[pos];
 
 		default: wrong_type(expr->where, to_idx.type, "'[]' operation");
 		}
@@ -614,26 +664,32 @@ static value_t eval_expr_value(env_t *e, expr_t *expr) {
 	return expr->as.val;
 }
 
+static int values_are_equal(value_t left, value_t right) {
+	if (right.type != left.type)
+		return false;
+
+	switch (left.type) {
+	case VALUE_TYPE_NUM:  return left.as.num   == right.as.num;
+	case VALUE_TYPE_BOOL: return left.as.bool_ == right.as.bool_;
+	case VALUE_TYPE_STR:  return strcmp(left.as.str, right.as.str) == 0;
+	case VALUE_TYPE_NIL:  return true;
+	case VALUE_TYPE_FUN:  return left.as.fun     == right.as.fun;
+	case VALUE_TYPE_NAT:  return left.as.nat     == right.as.nat;
+	case VALUE_TYPE_ARR:  return left.as.arr.buf == right.as.arr.buf;
+
+	default: UNREACHABLE("Unknown value type");
+	}
+
+	return false;
+}
+
 static value_t eval_expr_bin_op_equals(env_t *e, expr_t *expr) {
 	expr_bin_op_t *bin_op = &expr->as.bin_op;
 
 	value_t left  = eval_expr(e, bin_op->left);
 	value_t right = eval_expr(e, bin_op->right);
 
-	if (right.type != left.type)
-		return value_bool(false);
-
-	switch (left.type) {
-	case VALUE_TYPE_NUM:  return value_bool(left.as.num   == right.as.num);
-	case VALUE_TYPE_BOOL: return value_bool(left.as.bool_ == right.as.bool_);
-	case VALUE_TYPE_STR:  return value_bool(strcmp(left.as.str, right.as.str) == 0);
-	case VALUE_TYPE_NIL:  return value_bool(true);
-	case VALUE_TYPE_FUN:  return value_bool(left.as.fun == right.as.fun);
-
-	default: wrong_type(expr->where, left.type, "left side of '==' operation");
-	}
-
-	return value_nil();
+	return value_bool(values_are_equal(left, right));
 }
 
 static value_t eval_expr_bin_op_not_equals(env_t *e, expr_t *expr) {
@@ -973,17 +1029,22 @@ static value_t eval_expr_bin_op_in(env_t *e, expr_t *expr) {
 	value_t left  = eval_expr(e, bin_op->left);
 	value_t right = eval_expr(e, bin_op->right);
 
-	if (left.type != VALUE_TYPE_STR)
-		wrong_type(expr->where, left.type, "left side of 'in' operation");
-	else if (right.type != VALUE_TYPE_STR)
-		wrong_type(expr->where, right.type,
-		           "right side of 'in' operation, expected same as left side");
+	if (right.type == VALUE_TYPE_ARR) {
+		for (size_t i = 0; i < right.as.arr.size; ++ i) {
+			if (values_are_equal(right.as.arr.buf[i], left))
+				return value_num(i);
+		}
+	} else if (right.type == VALUE_TYPE_STR) {
+		if (left.type != VALUE_TYPE_STR)
+			wrong_type(expr->where, left.type, "left side of 'in' operation");
 
-	const char *ptr = strstr(right.as.str, left.as.str);
-	if (ptr == NULL)
-		return value_nil();
-	else
-		return value_num((double)(ptr - right.as.str));
+		const char *ptr = strstr(right.as.str, left.as.str);
+		if (ptr != NULL)
+			return value_num((double)(ptr - right.as.str));
+	} else
+		wrong_type(expr->where, right.type, "right side of 'in' operation");
+
+	return value_nil();
 }
 
 static value_t eval_expr_bin_op(env_t *e, expr_t *expr) {
@@ -1060,6 +1121,7 @@ static value_t eval_expr(env_t *e, expr_t *expr) {
 	switch (expr->type) {
 	case EXPR_TYPE_CALL:   return eval_expr_call(  e, expr);
 	case EXPR_TYPE_FMT:    return eval_expr_fmt(   e, expr);
+	case EXPR_TYPE_ARR:    return eval_expr_arr(   e, expr);
 	case EXPR_TYPE_IDX:    return eval_expr_idx(   e, expr);
 	case EXPR_TYPE_ID:     return eval_expr_id(    e, expr);
 	case EXPR_TYPE_DO:     return eval_expr_do(    e, expr);

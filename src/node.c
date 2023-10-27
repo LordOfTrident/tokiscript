@@ -50,6 +50,13 @@ void expr_free(expr_t *expr) {
 		free(expr->as.fmt.str);
 		break;
 
+	case EXPR_TYPE_ARR:
+		for (size_t i = 0; i < expr->as.arr.size; ++ i)
+			expr_free(expr->as.arr.buf[i]);
+
+		free(expr->as.arr.buf);
+		break;
+
 	case EXPR_TYPE_FUN:
 		for (size_t i = 0; i < expr->as.fun.args_count; ++ i)
 			free(expr->as.fun.args[i]);
@@ -60,7 +67,7 @@ void expr_free(expr_t *expr) {
 	default: break;
 	}
 
-	static_assert(EXPR_TYPE_COUNT == 9); /* Add code to free new expressions */
+	static_assert(EXPR_TYPE_COUNT == 10); /* Add code to free new expressions */
 
 	free(expr);
 }
