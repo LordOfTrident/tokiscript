@@ -1,0 +1,18 @@
+let iterations = 10
+if argc() > 1
+	iterations = strtonum(argat(1))
+end
+
+let num1 = 0, num2 = 1
+print('%v, %v'(num1, num2))
+
+for let i = 0; i < iterations; i ++ 1
+	let num3 = num1 + num2
+
+	print(', %v'(num3))
+
+	num1 = num2
+	num2 = num3
+end
+
+println()

@@ -16,11 +16,9 @@ fun forEachLine(str, func)
 	end
 end
 
-let inputPath
+let inputPath = "examples/aoc-22-01-input.txt"
 if argc() > 1
 	inputPath = argat(1)
-else
-	inputPath = "examples/aoc-22-01-input.txt"
 end
 
 let caloriesList = [0]
