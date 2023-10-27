@@ -1,0 +1,23 @@
+let path = "my-file.txt"
+fwritestr(path, "Hello, world!\nFrom tokiscript.")
+println('Created "%v"'(path))
+
+let str = freadstr(path)
+println('Reading "%v":\n%v'(path, str))
+
+let bytes = freadbytes(path)
+println('Reading bytes of "%v":'(path))
+
+for let i = 0; i < len(bytes); i ++ 1
+	if i > 0 and i % 8 == 0
+		println()
+	end
+
+	let str = numtostr(bytes[i])
+	print(str)
+
+	print(repeat(" ", 4 - len(str)))
+end
+println()
+
+fwritebytes(path, bytes)

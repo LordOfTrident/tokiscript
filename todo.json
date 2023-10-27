@@ -69,6 +69,18 @@
 		"type": "task",
 		"title": "Lists, indexing",
 		"desc": null,
+		"done": true
+	},
+	{
+		"type": "task",
+		"title": "File IO",
+		"desc": null,
+		"done": true
+	},
+	{
+		"type": "task",
+		"title": "Eval function",
+		"desc": null,
 		"done": false
 	},
 	{

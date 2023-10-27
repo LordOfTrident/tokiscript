@@ -1,4 +1,4 @@
-# TODO (64% done)
+# TODO (68% done)
 - [X] Basic "Hello, world!"
 - [X] Expressions
 - [X] Variables
@@ -10,7 +10,9 @@
 - [X] Do blocks, return
 - [X] Defer
 - [X] Functions
-- [ ] Lists, indexing
+- [X] Lists, indexing
+- [X] File IO
+- [ ] Eval function
 - [ ] Objects/structures
 - [ ] Maps
 - [ ] Proper type checking

@@ -82,6 +82,8 @@ void env_init(env_t *e, int argc, const char **argv) {
 	env_scope_begin(e);
 
 	for (size_t i = 0; i < sizeof(builtins) / sizeof(*builtins); ++ i) {
+		assert(builtins[i].name != NULL);
+
 		var_t *var = env_new_var(e, builtins[i].name, true);
 		assert(var != NULL);
 
@@ -438,27 +440,141 @@ static value_t builtin_rand(env_t *e, expr_t *expr) {
 	return value_num(rand());
 }
 
+static value_t builtin_freadstr(env_t *e, expr_t *expr) {
+	expr_call_t *call = &expr->as.call;
+
+	if (call->args_count != 1)
+		wrong_arg_count(expr->where, call->args_count, 1);
+
+	value_t path = eval_expr(e, call->args[0]);
+	if (path.type != VALUE_TYPE_STR)
+		wrong_type(expr->where, path.type, "'freadstr' function");
+
+	FILE *file = fopen(path.as.str, "r");
+	if (file == NULL)
+		return value_nil();
+
+	fseek(file, 0, SEEK_END);
+	size_t size = (size_t)ftell(file);
+	rewind(file);
+
+	char *str = (char*)malloc(size + 1);
+	if (str == NULL)
+		UNREACHABLE("malloc() fail");
+
+	if (fread(str, size, 1, file) <= 0)
+		return value_nil();
+
+	str[size] = '\0';
+	fclose(file);
+	return value_str(str);
+}
+
+static value_t builtin_freadbytes(env_t *e, expr_t *expr) {
+	expr_call_t *call = &expr->as.call;
+
+	if (call->args_count != 1)
+		wrong_arg_count(expr->where, call->args_count, 1);
+
+	value_t path = eval_expr(e, call->args[0]);
+	if (path.type != VALUE_TYPE_STR)
+		wrong_type(expr->where, path.type, "'freadbytes' function");
+
+	FILE *file = fopen(path.as.str, "rb");
+	if (file == NULL)
+		return value_nil();
+
+	fseek(file, 0, SEEK_END);
+	size_t size = (size_t)ftell(file);
+	rewind(file);
+
+	value_t bytes = value_arr(size);
+	for (size_t i = 0; i < size; ++ i)
+		bytes.as.arr.buf[i] = value_num(fgetc(file));
+
+	fclose(file);
+	return bytes;
+}
+
+static value_t builtin_fwritestr(env_t *e, expr_t *expr) {
+	expr_call_t *call = &expr->as.call;
+
+	if (call->args_count != 2)
+		wrong_arg_count(expr->where, call->args_count, 2);
+
+	value_t path = eval_expr(e, call->args[0]);
+	if (path.type != VALUE_TYPE_STR)
+		wrong_type(expr->where, path.type, "'fwritestr' function argument #1");
+
+	value_t str = eval_expr(e, call->args[1]);
+	if (str.type != VALUE_TYPE_STR)
+		wrong_type(expr->where, str.type, "'fwritestr' function argument #2");
+
+	FILE *file = fopen(path.as.str, "w");
+	if (file == NULL)
+		return value_nil();
+
+	fprintf(file, "%s", str.as.str);
+	fclose(file);
+	return value_nil();
+}
+
+
+static value_t builtin_fwritebytes(env_t *e, expr_t *expr) {
+	expr_call_t *call = &expr->as.call;
+
+	if (call->args_count != 2)
+		wrong_arg_count(expr->where, call->args_count, 2);
+
+	value_t path = eval_expr(e, call->args[0]);
+	if (path.type != VALUE_TYPE_STR)
+		wrong_type(expr->where, path.type, "'fwritebytes' function argument #1");
+
+	value_t bytes = eval_expr(e, call->args[1]);
+	if (bytes.type != VALUE_TYPE_ARR)
+		wrong_type(expr->where, bytes.type, "'fwritebytes' function argument #2");
+
+	FILE *file = fopen(path.as.str, "wb");
+	if (file == NULL)
+		return value_nil();
+
+	for (size_t i = 0; i < bytes.as.arr.size; ++ i) {
+		if (bytes.as.arr.buf[i].type != VALUE_TYPE_NUM)
+			wrong_type(expr->where, bytes.as.arr.buf[i].type,
+			           "'fwritebytes' function argument #2 byte array");
+
+		fputc((int)bytes.as.arr.buf[i].as.num, file);
+	}
+
+	fclose(file);
+	return value_nil();
+}
+
 builtin_t builtins[BUILTINS_COUNT] = {
-	{.name = "println",  .func = builtin_println},
-	{.name = "print",    .func = builtin_print},
-	{.name = "len",      .func = builtin_len},
-	{.name = "readnum",  .func = builtin_readnum},
-	{.name = "readstr",  .func = builtin_readstr},
-	{.name = "panic",    .func = builtin_panic},
-	{.name = "exit",     .func = builtin_exit},
-	{.name = "system",   .func = builtin_system},
-	{.name = "platform", .func = builtin_platform},
-	{.name = "argc",     .func = builtin_argc},
-	{.name = "argat",    .func = builtin_argat},
-	{.name = "strtonum", .func = builtin_strtonum},
-	{.name = "numtostr", .func = builtin_numtostr},
-	{.name = "getenv",   .func = builtin_getenv},
-	{.name = "type",     .func = builtin_type},
-	{.name = "repeat",   .func = builtin_repeat},
-	{.name = "rand",     .func = builtin_rand},
+	{.name = "println",     .func = builtin_println},
+	{.name = "print",       .func = builtin_print},
+	{.name = "len",         .func = builtin_len},
+	{.name = "readnum",     .func = builtin_readnum},
+	{.name = "readstr",     .func = builtin_readstr},
+	{.name = "panic",       .func = builtin_panic},
+	{.name = "exit",        .func = builtin_exit},
+	{.name = "system",      .func = builtin_system},
+	{.name = "platform",    .func = builtin_platform},
+	{.name = "argc",        .func = builtin_argc},
+	{.name = "argat",       .func = builtin_argat},
+	{.name = "strtonum",    .func = builtin_strtonum},
+	{.name = "numtostr",    .func = builtin_numtostr},
+	{.name = "getenv",      .func = builtin_getenv},
+	{.name = "type",        .func = builtin_type},
+	{.name = "repeat",      .func = builtin_repeat},
+	{.name = "rand",        .func = builtin_rand},
+	{.name = "freadstr",    .func = builtin_freadstr},
+	{.name = "freadbytes",  .func = builtin_freadbytes},
+	{.name = "fwritestr",   .func = builtin_fwritestr},
+	{.name = "fwritebytes", .func = builtin_fwritebytes},
 };
 
-static_assert(BUILTINS_COUNT == 17); /* Update builtins count */
+static_assert(BUILTINS_COUNT == 21); /* Update builtins count */
 
 static value_t eval_with_return(env_t *e, stmt_t *stmt) {
 	++ e->returns;
