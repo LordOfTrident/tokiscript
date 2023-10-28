@@ -37,7 +37,7 @@ typedef struct {
 	bool    returning, breaking, continuing;
 
 	int argc;
-	const char **argv;
+	const char **argv, *path;
 } env_t;
 
 typedef value_t (*builtin_func_t)(env_t*, expr_t *expr);
@@ -47,7 +47,7 @@ typedef struct {
 	builtin_func_t func;
 } builtin_t;
 
-#define BUILTINS_COUNT 22
+#define BUILTINS_COUNT 23
 extern builtin_t builtins[BUILTINS_COUNT];
 
 void env_init(  env_t *e, int argc, const char **argv);

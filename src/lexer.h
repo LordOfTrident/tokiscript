@@ -13,8 +13,9 @@
 #define TOK_CAPACITY 1024
 
 typedef struct {
-	FILE *file;
-	int   ch;
+	size_t      it;
+	const char *str;
+	int         ch;
 
 	char   tok[TOK_CAPACITY];
 	size_t tok_len;
@@ -22,9 +23,7 @@ typedef struct {
 	where_t where;
 } lexer_t;
 
-int  lexer_begin(lexer_t *l, const char *path);
-void lexer_end(lexer_t *l);
-
+void lexer_init(lexer_t *l, const char *str, const char *path);
 token_t lexer_next(lexer_t *l);
 
 #endif

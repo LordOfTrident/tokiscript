@@ -90,7 +90,7 @@ void env_init(env_t *e, int argc, const char **argv) {
 		var->val = value_nat(builtins[i].func);
 	}
 
-	env_new_var(e, "pi", true)->val = value_num(3.1415926535);
+	env_new_var(e, "PI", true)->val = value_num(3.1415926535);
 }
 
 void env_deinit(env_t *e) {
@@ -127,11 +127,15 @@ static void fprint_value(value_t value, FILE *file) {
 static value_t builtin_print(env_t *e, expr_t *expr) {
 	expr_call_t *call = &expr->as.call;
 
-	for (size_t i = 0; i < call->args_count; ++ i) {
+	value_t list = value_arr(call->args_count);
+	for (size_t i = 0; i < call->args_count; ++ i)
+		list.as.arr.buf[i] = eval_expr(e, call->args[i]);
+
+	for (size_t i =0 ; i < call->args_count; ++ i) {
 		if (i > 0)
 			putchar(' ');
 
-		fprint_value(eval_expr(e, call->args[i]), stdout);
+		fprint_value(list.as.arr.buf[i], stdout);
 	}
 
 	return value_nil();
@@ -183,14 +187,19 @@ static value_t builtin_len(env_t *e, expr_t *expr) {
 static value_t builtin_readnum(env_t *e, expr_t *expr) {
 	expr_call_t *call = &expr->as.call;
 
-	for (size_t i = 0; i < call->args_count; ++ i) {
+	value_t list = value_arr(call->args_count);
+	for (size_t i = 0; i < call->args_count; ++ i)
+		list.as.arr.buf[i] = eval_expr(e, call->args[i]);
+
+	for (size_t i =0 ; i < call->args_count; ++ i) {
 		if (i > 0)
 			putchar(' ');
 
-		fprint_value(eval_expr(e, call->args[i]), stdout);
+		fprint_value(list.as.arr.buf[i], stdout);
 	}
 
-	putchar(' ');
+	if (call->args_count > 0)
+		putchar(' ');
 
 	char buf[1024] = {0};
 	{
@@ -210,14 +219,19 @@ static value_t builtin_readnum(env_t *e, expr_t *expr) {
 static value_t builtin_readstr(env_t *e, expr_t *expr) {
 	expr_call_t *call = &expr->as.call;
 
-	for (size_t i = 0; i < call->args_count; ++ i) {
+	value_t list = value_arr(call->args_count);
+	for (size_t i = 0; i < call->args_count; ++ i)
+		list.as.arr.buf[i] = eval_expr(e, call->args[i]);
+
+	for (size_t i =0 ; i < call->args_count; ++ i) {
 		if (i > 0)
 			putchar(' ');
 
-		fprint_value(eval_expr(e, call->args[i]), stdout);
+		fprint_value(list.as.arr.buf[i], stdout);
 	}
 
-	putchar(' ');
+	if (call->args_count > 0)
+		putchar(' ');
 
 	char buf[1024] = {0};
 	{
@@ -285,7 +299,7 @@ static value_t builtin_system(env_t *e, expr_t *expr) {
 		default: UNREACHABLE("Unknown value type");
 		}
 
-		size_t len = strlen(add);
+		size_t len = strlen(add) + 1;
 
 		size += len;
 		if (size + 1 >= cap) {
@@ -299,6 +313,7 @@ static value_t builtin_system(env_t *e, expr_t *expr) {
 		}
 
 		strcat(str, add);
+		strcat(str, " ");
 	}
 
 	int result = system(str);
@@ -452,24 +467,8 @@ static value_t builtin_freadstr(env_t *e, expr_t *expr) {
 	if (path.type != VALUE_TYPE_STR)
 		wrong_type(expr->where, path.type, "'freadstr' function");
 
-	FILE *file = fopen(path.as.str, "r");
-	if (file == NULL)
-		return value_nil();
-
-	fseek(file, 0, SEEK_END);
-	size_t size = (size_t)ftell(file);
-	rewind(file);
-
-	char *str = (char*)malloc(size + 1);
-	if (str == NULL)
-		UNREACHABLE("malloc() fail");
-
-	if (fread(str, size, 1, file) <= 0)
-		return value_nil();
-
-	str[size] = '\0';
-	fclose(file);
-	return value_str(str);
+	char *str = readfile(path.as.str);
+	return str == NULL? value_nil() : value_str(str);
 }
 
 static value_t builtin_freadbytes(env_t *e, expr_t *expr) {
@@ -569,6 +568,22 @@ static value_t builtin_array(env_t *e, expr_t *expr) {
 	return val;
 }
 
+static value_t eval_with_return(env_t *e, stmt_t *stmt);
+
+static value_t builtin_inline(env_t *e, expr_t *expr) {
+	expr_call_t *call = &expr->as.call;
+
+	if (call->args_count != 1)
+		wrong_arg_count(expr->where, call->args_count, 1);
+
+	value_t str = eval_expr(e, call->args[0]);
+	if (str.type != VALUE_TYPE_STR)
+		wrong_type(expr->where, str.type, "'inline' function");
+
+	stmt_t *program = parse(str.as.str, e->path);
+	return eval_with_return(e, program);
+}
+
 builtin_t builtins[BUILTINS_COUNT] = {
 	{.name = "println",     .func = builtin_println},
 	{.name = "print",       .func = builtin_print},
@@ -592,9 +607,10 @@ builtin_t builtins[BUILTINS_COUNT] = {
 	{.name = "fwritestr",   .func = builtin_fwritestr},
 	{.name = "fwritebytes", .func = builtin_fwritebytes},
 	{.name = "array",       .func = builtin_array},
+	{.name = "inline",      .func = builtin_inline},
 };
 
-static_assert(BUILTINS_COUNT == 22); /* Update builtins count */
+static_assert(BUILTINS_COUNT == 23); /* Update builtins count */
 
 static value_t eval_with_return(env_t *e, stmt_t *stmt) {
 	++ e->returns;
@@ -1490,7 +1506,8 @@ static void eval_stmt_let(env_t *e, stmt_t *stmt) {
 
 	var_t *var = env_new_var(e, let->name, let->const_);
 	if (var == NULL)
-		error(stmt->where, "Variable '%s' redeclared", let->name);
+		error(stmt->where,
+		      let->const_? "Constant '%s' redeclared" : "Variable '%s' redeclared", let->name);
 
 	var->val = let->val == NULL? value_nil() : eval_expr(e, let->val);
 
@@ -1524,7 +1541,7 @@ static void eval_stmt_if(env_t *e, stmt_t *stmt) {
 		eval(e, if_->body);
 	else if (if_->next != NULL)
 		eval_stmt_if(e, if_->next);
-	else
+	else if (if_->else_ != NULL)
 		eval(e, if_->else_);
 
 	env_scope_end(e);
@@ -1644,6 +1661,8 @@ static void eval_stmt_fun(env_t *e, stmt_t *stmt) {
 }
 
 void eval(env_t *e, stmt_t *program) {
+	e->path = program->where.path;
+
 	for (stmt_t *stmt = program; stmt != NULL; stmt = stmt->next) {
 		switch (stmt->type) {
 		case STMT_TYPE_EXPR:     eval_expr(         e, stmt->as.expr); break;

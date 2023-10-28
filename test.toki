@@ -1,0 +1,44 @@
+let tokiPath    = "./bin/app"
+let testsFolder = "./tests"
+let tests       = [
+	"100000.toki",  "callback.toki",   "do.toki",     "uwuifier.toki",  "fun.toki",          "len.toki",     "unary.toki",
+	"args.toki",    "comments.toki",   "enum.toki",   "expr.toki",      "hello_world.toki",  "let2.toki",    "print.toki",
+	"arr.toki",     "concat.toki",     "env.toki",    "file.toki",      "idx.toki",          "let.toki",     "slice.toki",
+	"assign.toki",  "const.toki",      "while.toki",  "fmt.toki",       "if.toki",           "matrix.toki",  "system.toki",
+	"bools.toki",   "defer.toki",      "exit.toki",   "for.toki",       "input.toki",        "nil.toki",     "type.toki",
+	"panic.toki",   "expr_error.toki", "error.toki",
+]
+
+let success = []
+let fail    = []
+
+for let i = 0; i < len(tests); i ++ 1
+	println('\n[RUNNING %v]'(tests[i]))
+	if system(tokiPath, testsFolder + "/" + tests[i]) /= 0
+		println("[TEST RETURNED NON-ZERO EXIT CODE]\nPress enter to continue")
+		let _ = readstr()
+		fail ++ tests[i]
+	else
+		success ++ tests[i]
+	end
+end
+
+fun printTests(tests)
+	for let i = 0; i < len(tests); i ++ 1
+		if i > 0
+			print(", ")
+		end
+
+		print(tests[i])
+	end
+	println()
+end
+
+println("\nSUMMARY:")
+
+println("\t", len(success), "tests returned a zero exitcode:")
+printTests(success)
+
+println()
+println("\t", len(fail), "tests returned a non-zero exitcode:")
+printTests(fail)

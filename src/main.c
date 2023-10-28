@@ -74,10 +74,12 @@ int main(int argc, const char **argv) {
 	else if (strcmp(arg, "-v") == 0 || strcmp(arg, "--version") == 0)
 		version();
 
-	int     status;
-	stmt_t *program = parse(arg, &status);
-	if (status != 0)
+	char *str = readfile(arg);
+	if (str == NULL)
 		arg_fatal("Could not open file '%s'", arg);
+
+	stmt_t *program = parse(str, arg);
+	free(str);
 
 	env_t e;
 	env_init(&e, enva.c, enva.v);

@@ -1,29 +1,24 @@
 #include "lexer.h"
 
 static void lexer_advance(lexer_t *l) {
-	l->ch = fgetc(l->file);
+	l->ch = l->str[l->it];
 	if (l->ch == '\n') {
 		++ l->where.row;
 		l->where.col = 1;
 	} else
 		++ l->where.col;
+
+	if (l->ch != '\0')
+		++ l->it;
 }
 
-int lexer_begin(lexer_t *l, const char *path) {
+void lexer_init(lexer_t *l, const char *str, const char *path) {
 	memset(l, 0, sizeof(*l));
 
-	l->file = fopen(path, "r");
-	if (l->file == NULL)
-		return -1;
-
+	l->str = str;
 	l->where.path = path;
 	l->where.row  = 1;
 	lexer_advance(l);
-	return 0;
-}
-
-void lexer_end(lexer_t *l) {
-	fclose(l->file);
 }
 
 static void lexer_tok_append(lexer_t *l, char ch) {
@@ -93,7 +88,13 @@ static token_t lex_str(lexer_t *l, token_type_t type) {
 	bool escape = false;
 	for (lexer_advance(l); l->ch != end || escape; lexer_advance(l)) {
 		switch (l->ch) {
-		case EOF: case '\n': return token_new_err("String exceeds line", l->where);
+		case '\0':
+			return token_new_err("String exceeds line", l->where);
+
+		case '\n':
+			if (end != '`')
+				return token_new_err("String exceeds line", l->where);
+			break;
 
 		case '\\':
 			if (escape) {
@@ -263,7 +264,7 @@ static token_t lex_mul(lexer_t *l) {
 }
 
 static void lexer_skip_comment(lexer_t *l) {
-	while (l->ch != '\n' && l->ch != EOF)
+	while (l->ch != '\n' && l->ch != '\0')
 		lexer_advance(l);
 }
 
@@ -271,7 +272,7 @@ token_t lexer_next(lexer_t *l) {
 	l->tok_len = 0;
 	l->tok[0]  = 0;
 
-	while (l->ch != EOF) {
+	while (l->ch != '\0') {
 		switch (l->ch) {
 		case '(': return lex_simple_sym(l, TOKEN_TYPE_LPAREN);
 		case ')': return lex_simple_sym(l, TOKEN_TYPE_RPAREN);
@@ -293,6 +294,7 @@ token_t lexer_next(lexer_t *l) {
 
 		case '"':  return lex_str(l, TOKEN_TYPE_STR);
 		case '\'': return lex_str(l, TOKEN_TYPE_FMT);
+		case '`':  return lex_str(l, TOKEN_TYPE_STR);
 
 		case '#': lexer_skip_comment(l); break;
 

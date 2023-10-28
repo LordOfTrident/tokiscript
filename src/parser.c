@@ -729,15 +729,10 @@ static stmt_t *parse_stmt(parser_t *p) {
 	return NULL;
 }
 
-stmt_t *parse(const char *path, int *status) {
+stmt_t *parse(const char *str, const char *path) {
 	parser_t p = {0};
 
-	int ret = lexer_begin(&p.l, path);
-	if (status != NULL)
-		*status = ret;
-
-	if (ret != 0)
-		return NULL;
+	lexer_init(&p.l, str, path);
 
 	p.tok.type = !TOKEN_TYPE_EOF;
 	parser_advance(&p);
@@ -754,6 +749,5 @@ stmt_t *parse(const char *path, int *status) {
 		}
 	}
 
-	lexer_end(&p.l);
 	return program;
 }

@@ -46,3 +46,24 @@ void double_to_str(double num, char *buf, size_t size) {
 		buf[i] = '\0';
 	}
 }
+
+char *readfile(const char *path) {
+	FILE *file = fopen(path, "r");
+	if (file == NULL)
+		return NULL;
+
+	fseek(file, 0, SEEK_END);
+	size_t size = (size_t)ftell(file);
+	rewind(file);
+
+	char *str = (char*)malloc(size + 1);
+	if (str == NULL)
+		UNREACHABLE("malloc() fail");
+
+	if (fread(str, size, 1, file) <= 0)
+		return NULL;
+
+	str[size] = '\0';
+	fclose(file);
+	return str;
+}

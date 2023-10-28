@@ -1,23 +1,13 @@
 fun isop(op)
-	return op in "+-*/%^" /= nil
+	return len(op) == 1 and op in "+-*/%^x" /= nil
 end
 
 fun perform(a, b, op)
-	if op == "+"
-		return a + b
-	elif op == "-"
-		return a - b
-	elif op == "*"
-		return a * b
-	elif op == "/"
-		return a / b
-	elif op == "%"
-		return a % b
-	elif op == "^"
-		return a ^ b
-	else
-		panic("Unimplemented operation", op)
+	if op == "x"
+		op = "*"
 	end
+
+	return inline('return a %v b'(op))
 end
 
 fun usage()
@@ -26,7 +16,7 @@ fun usage()
 	println()
 	println("Providing no arguments starts the REPL")
 	println()
-	println("Operations: + - * / % ^")
+	println("Operations: + - * x / % ^")
 	exit(0)
 end
 
@@ -39,11 +29,10 @@ fun repl()
 			break
 		elif op == "help"
 			println("Commands:   exit   help")
-			println("Operations: + - * / % ^")
+			println("Operations: + - * x / % ^")
 		elif isop(op)
 			let a = readnum("a ="), b = readnum("b =")
-			let result = perform(a, b, op)
-			println("(out)", a, op, b, "=", result)
+			println("(out)", a, op, b, "=", perform(a, b, op))
 		else
 			println('(err) Unknown operation "%v", try "help"'(op))
 		end
@@ -55,8 +44,7 @@ if argc() > 1
 		usage()
 	elif argc() == 4
 		let a = strtonum(argat(1)), op = argat(2), b = strtonum(argat(3))
-		let result = perform(a, b, op)
-		println(a, op, b, "=", result)
+		println(a, op, b, "=", perform(a, b, op))
 	else
 		println("(err) Unexpected arguments, try \"-h\"")
 		exit(1)

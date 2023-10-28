@@ -14,6 +14,6 @@ typedef struct {
 	token_t tok;
 } parser_t;
 
-stmt_t *parse(const char *path, int *status);
+stmt_t *parse(const char *str, const char *path);
 
 #endif

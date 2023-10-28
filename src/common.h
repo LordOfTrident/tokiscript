@@ -15,4 +15,6 @@ char *shift(int *argc, char ***argv);
 
 void double_to_str(double num, char *buf, size_t size);
 
+char *readfile(const char *path);
+
 #endif
