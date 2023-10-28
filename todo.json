@@ -87,7 +87,7 @@
 		"type": "task",
 		"title": "Eval function",
 		"desc": null,
-		"done": false
+		"done": true
 	},
 	{
 		"type": "task",
