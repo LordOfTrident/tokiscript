@@ -27,7 +27,7 @@ static void env_scope_begin(env_t *e) {
 }
 
 static void env_gc(env_t *e) {
-	size_t cap = 0, size = 0;
+	size_t cap = 1, size = 0;
 	for (scope_t *scope = e->scope; scope != e->scopes - 1; -- scope)
 		cap += scope->vars_count;
 
@@ -49,6 +49,9 @@ static void env_gc(env_t *e) {
 		}
 	}
 
+	refs[size ++] = e->return_;
+	e->return_ = value_nil();
+
 	gc_mas(&e->gc, refs, size);
 	free(refs);
 }
@@ -58,7 +61,6 @@ static void env_scope_end(env_t *e) {
 		eval(e, e->scope->defer[i], e->path);
 
 	-- e->scope;
-
 	env_gc(e);
 }
 
@@ -85,6 +87,7 @@ static var_t *env_new_var(env_t *e, const char *name, bool const_) {
 
 	e->scope->vars[idx].name   = (char*)name;
 	e->scope->vars[idx].const_ = const_;
+	e->scope->vars[idx].val    = value_nil();
 	return e->scope->vars + idx;
 }
 

@@ -1,0 +1,31 @@
+enum v2f_x, v2f_y
+
+fun v2_new(x, y)
+	let vec = array(2)
+	vec[v2f_x] = x
+	vec[v2f_y] = y
+	return vec
+end
+
+fun v2_getx(vec) return vec[v2f_x] end
+fun v2_gety(vec) return vec[v2f_y] end
+
+fun v2_setx(vec, x) vec[v2f_x] = x end
+fun v2_sety(vec, y) vec[v2f_y] = y end
+
+fun v2_println(vec)
+	println('[%v; %v]'(vec[v2f_x], vec[v2f_y]))
+end
+
+fun v2_add(vec, to_add)
+	vec[0] ++ to_add[v2f_x]
+	vec[1] ++ to_add[v2f_y]
+end
+
+
+
+let vec = v2_new(5, 3)
+v2_println(vec)
+
+v2_add(vec, v2_new(10, 7))
+v2_println(vec)
