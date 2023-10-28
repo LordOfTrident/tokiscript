@@ -83,7 +83,7 @@ int main(int argc, const char **argv) {
 
 	env_t e;
 	env_init(&e, enva.c, enva.v);
-	eval(&e, program);
+	eval(&e, program, arg);
 	env_deinit(&e);
 
 	stmt_free(program);

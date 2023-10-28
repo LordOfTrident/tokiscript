@@ -11,6 +11,12 @@
 #include "parser.h"
 #include "value.h"
 #include "node.h"
+#include "gc.h"
+
+/* Welcome to eval.h
+ * You should probably stay in the header files since you dont wanna see what the hell is going
+ * on under the hood in gc.c and eval.c
+ */
 
 typedef struct {
 	char   *name;
@@ -38,6 +44,8 @@ typedef struct {
 
 	int argc;
 	const char **argv, *path;
+
+	gc_t gc;
 } env_t;
 
 typedef value_t (*builtin_func_t)(env_t*, expr_t *expr);
@@ -47,12 +55,12 @@ typedef struct {
 	builtin_func_t func;
 } builtin_t;
 
-#define BUILTINS_COUNT 23
+#define BUILTINS_COUNT 24
 extern builtin_t builtins[BUILTINS_COUNT];
 
 void env_init(  env_t *e, int argc, const char **argv);
 void env_deinit(env_t *e);
 
-void eval(env_t *e, stmt_t *program);
+void eval(env_t *e, stmt_t *program, const char *path);
 
 #endif

@@ -1,5 +1,7 @@
 #include "eval.h"
 
+/* 1.7k+ lines of hell */
+
 static void env_scope_begin(env_t *e) {
 	if (e->scope == NULL)
 		e->scope = e->scopes;
@@ -24,11 +26,40 @@ static void env_scope_begin(env_t *e) {
 	}
 }
 
+static void env_gc(env_t *e) {
+	size_t cap = 0, size = 0;
+	for (scope_t *scope = e->scope; scope != e->scopes - 1; -- scope)
+		cap += scope->vars_count;
+
+	if (cap == 0)
+		cap = 1;
+
+	value_t *refs = (value_t*)malloc(cap * sizeof(value_t));
+	if (refs == NULL)
+		UNREACHABLE("malloc() fail");
+
+	for (scope_t *scope = e->scope; scope != e->scopes - 1; -- scope) {
+		for (size_t i = 0; i < scope->vars_count; ++ i) {
+			if (scope->vars[i].name == NULL)
+				continue;
+
+			value_t val = scope->vars[i].val;
+			if (val.type == VALUE_TYPE_STR || val.type == VALUE_TYPE_ARR)
+				refs[size ++] = val;
+		}
+	}
+
+	gc_mas(&e->gc, refs, size);
+	free(refs);
+}
+
 static void env_scope_end(env_t *e) {
 	for (size_t i = e->scope->defer_count; i --> 0;)
-		eval(e, e->scope->defer[i]);
+		eval(e, e->scope->defer[i], e->path);
 
 	-- e->scope;
+
+	env_gc(e);
 }
 
 static var_t *env_new_var(env_t *e, const char *name, bool const_) {
@@ -94,14 +125,18 @@ void env_init(env_t *e, int argc, const char **argv) {
 }
 
 void env_deinit(env_t *e) {
-	env_scope_end(e);
 	for (size_t i = 0; i < MAX_NEST; ++ i) {
 		if (e->scopes[i].vars != NULL)
 			free(e->scopes[i].vars);
 
 		if (e->scopes[i].defer != NULL)
 			free(e->scopes[i].defer);
+
+		e->scopes[i].vars_count  = 0;
+		e->scopes[i].defer_count = 0;
 	}
+
+	env_scope_end(e);
 }
 
 static value_t eval_expr(env_t *e, expr_t *expr);
@@ -137,6 +172,7 @@ static value_t builtin_print(env_t *e, expr_t *expr) {
 
 		fprint_value(list.as.arr.buf[i], stdout);
 	}
+	value_free(&list);
 
 	return value_nil();
 }
@@ -197,6 +233,7 @@ static value_t builtin_readnum(env_t *e, expr_t *expr) {
 
 		fprint_value(list.as.arr.buf[i], stdout);
 	}
+	value_free(&list);
 
 	if (call->args_count > 0)
 		putchar(' ');
@@ -229,6 +266,7 @@ static value_t builtin_readstr(env_t *e, expr_t *expr) {
 
 		fprint_value(list.as.arr.buf[i], stdout);
 	}
+	value_free(&list);
 
 	if (call->args_count > 0)
 		putchar(' ');
@@ -245,8 +283,7 @@ static value_t builtin_readstr(env_t *e, expr_t *expr) {
 			buf[len - 1] = '\0';
 	}
 
-	/* TODO: Solve memory leaks */
-	return value_str(strcpy_to_heap(buf));
+	return gc_add_elem(&e->gc, value_str(strcpy_to_heap(buf)));
 }
 
 static value_t builtin_exit(env_t *e, expr_t *expr) {
@@ -329,15 +366,15 @@ static value_t builtin_platform(env_t *e, expr_t *expr) {
 		wrong_arg_count(expr->where, call->args_count, 0);
 
 #if defined(WIN32)
-	return value_str("windows");
+	return gc_add_elem(&e->gc, value_str(strcpy_to_heap("windows")));
 #elif defined(__APPLE__)
-	return value_str("apple");
+	return gc_add_elem(&e->gc, value_str(strcpy_to_heap("apple")));
 #elif defined(__linux__) || defined(__gnu_linux__) || defined(linux)
-	return value_str("linux");
+	return gc_add_elem(&e->gc, value_str(strcpy_to_heap("linux")));
 #elif defined(__unix__) || defined(unix)
-	return value_str("unix");
+	return gc_add_elem(&e->gc, value_str(strcpy_to_heap("unix")));
 #else
-	return value_str("unknown");
+	return gc_add_elem(&e->gc, value_str(strcpy_to_heap("unknown")));
 #endif
 }
 
@@ -393,7 +430,7 @@ static value_t builtin_numtostr(env_t *e, expr_t *expr) {
 
 	char buf[64] = {0};
 	double_to_str(val.as.num, buf, sizeof(buf));
-	return value_str(strcpy_to_heap(buf));
+	return gc_add_elem(&e->gc, value_str(strcpy_to_heap(buf)));
 }
 
 static value_t builtin_getenv(env_t *e, expr_t *expr) {
@@ -410,7 +447,7 @@ static value_t builtin_getenv(env_t *e, expr_t *expr) {
 	if (str == NULL)
 		return value_nil();
 	else
-		return value_str(str);
+		return gc_add_elem(&e->gc, value_str(strcpy_to_heap(str)));
 }
 
 static value_t builtin_type(env_t *e, expr_t *expr) {
@@ -419,7 +456,8 @@ static value_t builtin_type(env_t *e, expr_t *expr) {
 	if (call->args_count != 1)
 		wrong_arg_count(expr->where, call->args_count, 1);
 
-	return value_str((char*)value_type_to_cstr(eval_expr(e, call->args[0]).type));
+	char *type = (char*)value_type_to_cstr(eval_expr(e, call->args[0]).type);
+	return gc_add_elem(&e->gc, value_str(strcpy_to_heap(type)));
 }
 
 static value_t builtin_repeat(env_t *e, expr_t *expr) {
@@ -444,7 +482,7 @@ static value_t builtin_repeat(env_t *e, expr_t *expr) {
 	for (int i = 0; i < (int)n.as.num; ++ i)
 		strcat(repeated, str.as.str);
 
-	return value_str(repeated);
+	return gc_add_elem(&e->gc, value_str(repeated));
 }
 
 static value_t builtin_rand(env_t *e, expr_t *expr) {
@@ -468,7 +506,7 @@ static value_t builtin_freadstr(env_t *e, expr_t *expr) {
 		wrong_type(expr->where, path.type, "'freadstr' function");
 
 	char *str = readfile(path.as.str);
-	return str == NULL? value_nil() : value_str(str);
+	return str == NULL? value_nil() : gc_add_elem(&e->gc, value_str(str));
 }
 
 static value_t builtin_freadbytes(env_t *e, expr_t *expr) {
@@ -489,7 +527,7 @@ static value_t builtin_freadbytes(env_t *e, expr_t *expr) {
 	size_t size = (size_t)ftell(file);
 	rewind(file);
 
-	value_t bytes = value_arr(size);
+	value_t bytes = gc_add_elem(&e->gc, value_arr(size));
 	for (size_t i = 0; i < size; ++ i)
 		bytes.as.arr.buf[i] = value_num(fgetc(file));
 
@@ -560,7 +598,7 @@ static value_t builtin_array(env_t *e, expr_t *expr) {
 	if (size.type != VALUE_TYPE_NUM)
 		wrong_type(expr->where, size.type, "'array' function");
 
-	value_t val = value_arr((size_t)size.as.num);
+	value_t val = gc_add_elem(&e->gc, value_arr((size_t)size.as.num));
 
 	for (size_t i = 0; i < val.as.arr.size; ++ i)
 		val.as.arr.buf[i] = value_num(0);
@@ -582,6 +620,16 @@ static value_t builtin_inline(env_t *e, expr_t *expr) {
 
 	stmt_t *program = parse(str.as.str, e->path);
 	return eval_with_return(e, program);
+}
+
+static value_t builtin_gc(env_t *e, expr_t *expr) {
+	expr_call_t *call = &expr->as.call;
+
+	if (call->args_count != 0)
+		wrong_arg_count(expr->where, call->args_count, 0);
+
+	env_gc(e);
+	return value_nil();
 }
 
 builtin_t builtins[BUILTINS_COUNT] = {
@@ -608,15 +656,16 @@ builtin_t builtins[BUILTINS_COUNT] = {
 	{.name = "fwritebytes", .func = builtin_fwritebytes},
 	{.name = "array",       .func = builtin_array},
 	{.name = "inline",      .func = builtin_inline},
+	{.name = "gc",          .func = builtin_gc},
 };
 
-static_assert(BUILTINS_COUNT == 23); /* Update builtins count */
+static_assert(BUILTINS_COUNT == 24); /* Update builtins count */
 
 static value_t eval_with_return(env_t *e, stmt_t *stmt) {
 	++ e->returns;
 
 	e->return_ = value_nil();
-	eval(e, stmt);
+	eval(e, stmt, e->path);
 	if (e->returning)
 		e->returning = false;
 
@@ -661,7 +710,7 @@ static value_t eval_expr_call(env_t *e, expr_t *expr) {
 static value_t eval_expr_arr(env_t *e, expr_t *expr) {
 	expr_arr_t *arr = &expr->as.arr;
 
-	value_t val = value_arr(arr->size);
+	value_t val = gc_add_elem(&e->gc, value_arr(arr->size));
 	for (size_t i = 0; i < arr->size; ++ i)
 		val.as.arr.buf[i] = eval_expr(e, arr->buf[i]);
 
@@ -739,7 +788,7 @@ static value_t eval_expr_fmt(env_t *e, expr_t *expr) {
 	if (arg < fmt->args_count)
 		error(fmt->args[arg]->where, "Unexpected format argument");
 
-	return value_str(str);
+	return gc_add_elem(&e->gc, value_str(str));
 }
 
 static value_t eval_expr_idx(env_t *e, expr_t *expr) {
@@ -781,7 +830,7 @@ static value_t eval_expr_idx(env_t *e, expr_t *expr) {
 			char *buf = strcpy_to_heap(to_idx.as.str + startPos);
 			if (end.type != VALUE_TYPE_NIL)
 				buf[endPos - startPos] = '\0';
-			return value_str(buf);
+			return gc_add_elem(&e->gc, value_str(buf));
 		}
 
 		case VALUE_TYPE_ARR: {
@@ -793,7 +842,7 @@ static value_t eval_expr_idx(env_t *e, expr_t *expr) {
 
 			size = end.type == VALUE_TYPE_NIL? size - startPos : (size_t)endPos - startPos;
 
-			value_t val = value_arr(size);
+			value_t val = gc_add_elem(&e->gc, value_arr(size));
 			for (size_t i = 0; i < val.as.arr.size; ++ i)
 				val.as.arr.buf[i] = to_idx.as.arr.buf[startPos + i];
 
@@ -817,7 +866,7 @@ static value_t eval_expr_idx(env_t *e, expr_t *expr) {
 				error(expr->where, "Index exceeds string length");
 
 			char buf[] = {to_idx.as.str[pos], '\0'};
-			return value_str(strcpy_to_heap(buf));
+			return gc_add_elem(&e->gc, value_str(strcpy_to_heap(buf)));
 		}
 
 		case VALUE_TYPE_ARR: return to_idx.as.arr.buf[pos];
@@ -855,7 +904,10 @@ static value_t eval_expr_fun(env_t *e, expr_t *expr) {
 
 static value_t eval_expr_value(env_t *e, expr_t *expr) {
 	UNUSED(e);
-	return expr->as.val;
+	if (expr->as.val.type == VALUE_TYPE_STR)
+		return gc_add_elem(&e->gc, value_str(strcpy_to_heap(expr->as.val.as.str)));
+	else
+		return expr->as.val;
 }
 
 static int values_are_equal(value_t left, value_t right) {
@@ -1053,7 +1105,7 @@ static value_t eval_expr_bin_op_inc(env_t *e, expr_t *expr) {
 			undefined(expr->where, name);
 
 		if (var->val.type == VALUE_TYPE_ARR) {
-			value_t new = value_arr(var->val.as.arr.size + 1);
+			value_t new = gc_add_elem(&e->gc, value_arr(var->val.as.arr.size + 1));
 			for (size_t i = 0; i < var->val.as.arr.size; ++ i)
 				new.as.arr.buf[i] = var->val.as.arr.buf[i];
 
@@ -1064,11 +1116,22 @@ static value_t eval_expr_bin_op_inc(env_t *e, expr_t *expr) {
 			if (val.type != var->val.type)
 				wrong_type(expr->where, val.type, "'++' assignment");
 
-			if (val.type != VALUE_TYPE_NUM)
+			if (val.type != VALUE_TYPE_NUM && val.type != VALUE_TYPE_STR)
 				wrong_type(expr->where, val.type, "left side of '++' assignment");
 
-			var->val.as.num += val.as.num;
-			return val;
+			if (val.type == VALUE_TYPE_STR) {
+				char *concatted = (char*)malloc(strlen(var->val.as.str) + strlen(val.as.str) + 1);
+				if (concatted == NULL)
+					UNREACHABLE("malloc() fail");
+
+				strcpy(concatted, var->val.as.str);
+				strcat(concatted, val.as.str);
+				var->val.as.str = concatted;
+				return gc_add_elem(&e->gc, var->val);
+			} else {
+				var->val.as.num += val.as.num;
+				return val;
+			}
 		}
 	} else
 		error(expr->where, "left side of '++' expected variable");
@@ -1246,7 +1309,6 @@ static value_t eval_expr_bin_op_add(env_t *e, expr_t *expr) {
 		           "right side of '+' operation, expected same as left side");
 
 	if (left.type == VALUE_TYPE_STR) {
-		/* TODO: Solve memory leaks */
 		char *concatted = (char*)malloc(strlen(left.as.str) + strlen(right.as.str) + 1);
 		if (concatted == NULL)
 			UNREACHABLE("malloc() fail");
@@ -1254,6 +1316,7 @@ static value_t eval_expr_bin_op_add(env_t *e, expr_t *expr) {
 		strcpy(concatted, left.as.str);
 		strcat(concatted, right.as.str);
 		left.as.str = concatted;
+		gc_add_elem(&e->gc, left);
 	} else if (left.type == VALUE_TYPE_NUM)
 		left.as.num += right.as.num;
 	else if (left.type == VALUE_TYPE_ARR) {
@@ -1538,11 +1601,11 @@ static void eval_stmt_if(env_t *e, stmt_t *stmt) {
 	env_scope_begin(e);
 
 	if (cond.as.bool_)
-		eval(e, if_->body);
+		eval(e, if_->body, e->path);
 	else if (if_->next != NULL)
 		eval_stmt_if(e, if_->next);
 	else if (if_->else_ != NULL)
-		eval(e, if_->else_);
+		eval(e, if_->else_, e->path);
 
 	env_scope_end(e);
 }
@@ -1560,7 +1623,7 @@ static void eval_stmt_while(env_t *e, stmt_t *stmt) {
 			break;
 
 		env_scope_begin(e);
-		eval(e, while_->body);
+		eval(e, while_->body, e->path);
 		env_scope_end(e);
 		if (e->returning)
 			break;
@@ -1577,7 +1640,7 @@ static void eval_stmt_for(env_t *e, stmt_t *stmt) {
 	stmt_for_t *for_ = &stmt->as.for_;
 	env_scope_begin(e);
 
-	eval(e, for_->init);
+	eval(e, for_->init, e->path);
 	if (e->returning)
 		error(stmt->where, "Unexpected return in for loop");
 
@@ -1589,7 +1652,7 @@ static void eval_stmt_for(env_t *e, stmt_t *stmt) {
 
 		if (cond.as.bool_) {
 			env_scope_begin(e);
-			eval(e, for_->body);
+			eval(e, for_->body, e->path);
 			env_scope_end(e);
 			if (e->returning)
 				break;
@@ -1599,7 +1662,7 @@ static void eval_stmt_for(env_t *e, stmt_t *stmt) {
 			} else if (e->continuing)
 				e->continuing = false;
 
-			eval(e, for_->step);
+			eval(e, for_->step, e->path);
 			if (e->returning)
 				error(stmt->where, "Unexpected return in for loop step");
 			else if (e->breaking)
@@ -1660,8 +1723,8 @@ static void eval_stmt_fun(env_t *e, stmt_t *stmt) {
 	var->val = eval_expr(e, fun->def);
 }
 
-void eval(env_t *e, stmt_t *program) {
-	e->path = program->where.path;
+void eval(env_t *e, stmt_t *program, const char *path) {
+	e->path = path;
 
 	for (stmt_t *stmt = program; stmt != NULL; stmt = stmt->next) {
 		switch (stmt->type) {

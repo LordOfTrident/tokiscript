@@ -81,7 +81,7 @@
 		"type": "task",
 		"title": "Garbage collection",
 		"desc": null,
-		"done": false
+		"done": true
 	},
 	{
 		"type": "task",

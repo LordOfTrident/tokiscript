@@ -1,0 +1,38 @@
+let a
+
+do
+	let str = "HELLO"
+	println(str)
+
+	do
+		let test = ["hello", ["testing", "lol"]]
+		a = test
+	end
+
+	do
+		let slice = str[0, 2] + "Y THERE"
+		println(slice)
+
+		let arr = [1, 6, 4, 623, 2121]
+		for let i = 0; i < len(arr); i ++ 1
+			print(arr[i])
+			print(", ")
+		end
+		println()
+
+		slice = arr[2, nil]
+		for let i = 0; i < len(slice); i ++ 1
+			print(slice[i])
+			print(", ")
+		end
+		println()
+	end
+end
+
+for let i = 0; i < len(a); i ++ 1
+	print(a[i])
+	print(", ")
+end
+println()
+
+println("END")
