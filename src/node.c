@@ -126,6 +126,11 @@ void stmt_free(stmt_t *stmt) {
 		free(stmt->as.fun.name);
 		break;
 
+	case STMT_TYPE_ENUM:
+		free(stmt->as.enum_.name);
+		stmt_free(stmt->as.enum_.next);
+		break;
+
 	default: break;
 	}
 

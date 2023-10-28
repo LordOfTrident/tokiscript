@@ -89,6 +89,8 @@ void env_init(env_t *e, int argc, const char **argv) {
 
 		var->val = value_nat(builtins[i].func);
 	}
+
+	env_new_var(e, "pi", true)->val = value_num(3.1415926535);
 }
 
 void env_deinit(env_t *e) {
@@ -519,7 +521,6 @@ static value_t builtin_fwritestr(env_t *e, expr_t *expr) {
 	return value_nil();
 }
 
-
 static value_t builtin_fwritebytes(env_t *e, expr_t *expr) {
 	expr_call_t *call = &expr->as.call;
 
@@ -550,6 +551,24 @@ static value_t builtin_fwritebytes(env_t *e, expr_t *expr) {
 	return value_nil();
 }
 
+static value_t builtin_array(env_t *e, expr_t *expr) {
+	expr_call_t *call = &expr->as.call;
+
+	if (call->args_count != 1)
+		wrong_arg_count(expr->where, call->args_count, 1);
+
+	value_t size = eval_expr(e, call->args[0]);
+	if (size.type != VALUE_TYPE_NUM)
+		wrong_type(expr->where, size.type, "'array' function");
+
+	value_t val = value_arr((size_t)size.as.num);
+
+	for (size_t i = 0; i < val.as.arr.size; ++ i)
+		val.as.arr.buf[i] = value_num(0);
+
+	return val;
+}
+
 builtin_t builtins[BUILTINS_COUNT] = {
 	{.name = "println",     .func = builtin_println},
 	{.name = "print",       .func = builtin_print},
@@ -572,9 +591,10 @@ builtin_t builtins[BUILTINS_COUNT] = {
 	{.name = "freadbytes",  .func = builtin_freadbytes},
 	{.name = "fwritestr",   .func = builtin_fwritestr},
 	{.name = "fwritebytes", .func = builtin_fwritebytes},
+	{.name = "array",       .func = builtin_array},
 };
 
-static_assert(BUILTINS_COUNT == 21); /* Update builtins count */
+static_assert(BUILTINS_COUNT == 22); /* Update builtins count */
 
 static value_t eval_with_return(env_t *e, stmt_t *stmt) {
 	++ e->returns;
@@ -1478,6 +1498,19 @@ static void eval_stmt_let(env_t *e, stmt_t *stmt) {
 		eval_stmt_let(e, let->next);
 }
 
+static void eval_stmt_enum(env_t *e, stmt_t *stmt, int val) {
+	stmt_enum_t *enum_ = &stmt->as.enum_;
+
+	var_t *var = env_new_var(e, enum_->name, true);
+	if (var == NULL)
+		error(stmt->where, "Enum constant '%s' redeclared", enum_->name);
+
+	var->val = value_num(val);
+
+	if (enum_->next != NULL)
+		eval_stmt_enum(e, enum_->next, val + 1);
+}
+
 static void eval_stmt_if(env_t *e, stmt_t *stmt) {
 	stmt_if_t *if_ = &stmt->as.if_;
 
@@ -1615,6 +1648,7 @@ void eval(env_t *e, stmt_t *program) {
 		switch (stmt->type) {
 		case STMT_TYPE_EXPR:     eval_expr(         e, stmt->as.expr); break;
 		case STMT_TYPE_LET:      eval_stmt_let(     e, stmt);          break;
+		case STMT_TYPE_ENUM:     eval_stmt_enum(    e, stmt, 0);       break;
 		case STMT_TYPE_IF:       eval_stmt_if(      e, stmt);          break;
 		case STMT_TYPE_WHILE:    eval_stmt_while(   e, stmt);          break;
 		case STMT_TYPE_FOR:      eval_stmt_for(     e, stmt);          break;
@@ -1627,7 +1661,7 @@ void eval(env_t *e, stmt_t *program) {
 		default: UNREACHABLE("Unknown statement type");
 		}
 
-		if (e->returning || e->breaking)
+		if (e->returning || e->breaking || e->continuing)
 			break;
 	}
 }

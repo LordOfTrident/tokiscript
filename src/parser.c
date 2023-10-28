@@ -558,6 +558,24 @@ static stmt_t *parse_stmt_let(parser_t *p) {
 	return stmt;
 }
 
+static stmt_t *parse_stmt_enum(parser_t *p) {
+	stmt_t *stmt = stmt_new();
+	stmt->type   = STMT_TYPE_ENUM;
+	stmt->where  = p->tok.where;
+
+	parser_skip(p);
+	if (p->tok.type != TOKEN_TYPE_ID)
+		error(p->tok.where, "Expected identifier, got '%s'", token_type_to_cstr(p->tok.type));
+
+	stmt->as.enum_.name = p->tok.data;
+	parser_advance(p);
+
+	if (p->tok.type == TOKEN_TYPE_COMMA)
+		stmt->as.enum_.next = parse_stmt_enum(p);
+
+	return stmt;
+}
+
 static stmt_t *parse_stmts(parser_t *p) {
 	where_t start = p->tok.where;
 
@@ -695,6 +713,7 @@ static stmt_t *parse_stmt(parser_t *p) {
 	switch (p->tok.type) {
 	case TOKEN_TYPE_LET:
 	case TOKEN_TYPE_CONST:    return parse_stmt_let(p);
+	case TOKEN_TYPE_ENUM:     return parse_stmt_enum(p);
 	case TOKEN_TYPE_IF:       return parse_stmt_if(p);
 	case TOKEN_TYPE_WHILE:    return parse_stmt_while(p);
 	case TOKEN_TYPE_FOR:      return parse_stmt_for(p);

@@ -22,6 +22,7 @@ typedef struct expr_arr    expr_arr_t;
 
 typedef struct stmt        stmt_t;
 typedef struct stmt_let    stmt_let_t;
+typedef struct stmt_enum   stmt_enum_t;
 typedef struct stmt_if     stmt_if_t;
 typedef struct stmt_while  stmt_while_t;
 typedef struct stmt_for    stmt_for_t;
@@ -152,6 +153,7 @@ static_assert(EXPR_TYPE_COUNT == 10); /* Add new expressions to union */
 typedef enum {
 	STMT_TYPE_EXPR = 0,
 	STMT_TYPE_LET,
+	STMT_TYPE_ENUM,
 	STMT_TYPE_IF,
 	STMT_TYPE_WHILE,
 	STMT_TYPE_FOR,
@@ -200,6 +202,11 @@ struct stmt_fun {
 	expr_t *def;
 };
 
+struct stmt_enum {
+	char   *name;
+	stmt_t *next;
+};
+
 struct stmt {
 	where_t     where;
 	stmt_type_t type;
@@ -213,12 +220,13 @@ struct stmt {
 		stmt_return_t return_;
 		stmt_defer_t  defer;
 		stmt_fun_t    fun;
+		stmt_enum_t   enum_;
 	} as;
 
 	stmt_t *next;
 };
 
-static_assert(STMT_TYPE_COUNT == 10); /* Add new statements to union */
+static_assert(STMT_TYPE_COUNT == 11); /* Add new statements to union */
 
 expr_t *expr_new(void);
 void    expr_free(expr_t *expr);

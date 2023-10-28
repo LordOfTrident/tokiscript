@@ -1,0 +1,30 @@
+enum
+	fruitApple,
+	fruitOrange,
+	fruitBanana,
+	fruitPear,
+	fruitRaspberry,
+
+	fruitsCount
+
+let fruitToString = array(fruitsCount)
+fruitToString[fruitApple]     = "apple"
+fruitToString[fruitOrange]    = "orange"
+fruitToString[fruitBanana]    = "banana"
+fruitToString[fruitPear]      = "pear"
+fruitToString[fruitRaspberry] = "raspberry"
+
+fun printFruitInfo(fruit)
+	println('%v: %v'(fruit, fruitToString[fruit]))
+end
+
+printFruitInfo(fruitOrange)
+printFruitInfo(fruitApple)
+printFruitInfo(fruitPear)
+
+#const
+#	fruitApple     = "apple",
+#	fruitOrange    = "orange",
+#	fruitBanana    = "banana",
+#	fruitPear      = "pear",
+#	fruitRaspberry = "raspberry"
