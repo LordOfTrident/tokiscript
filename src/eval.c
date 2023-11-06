@@ -50,7 +50,6 @@ static void env_gc(env_t *e) {
 	}
 
 	refs[size ++] = e->return_;
-	e->return_ = value_nil();
 
 	gc_mas(&e->gc, refs, size);
 	free(refs);

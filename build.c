@@ -11,7 +11,7 @@
 
 /* Binary names */
 #define OUT     "app"
-#define INSTALL "tokiscript"
+#define INSTALL "toki"
 
 #define CARGS "-O2", "-std=c11", "-Wall", "-Wextra", "-Werror", "-pedantic", \
               "-Wno-deprecated-declarations", "-I./", "-g"

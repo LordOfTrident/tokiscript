@@ -1,0 +1,42 @@
+fun copy(x)
+	if type(x) == "string"
+		return x[0, nil]
+	elif type(x) == "array"
+		let copied = x[0, nil]
+		for let i = 0; i < len(copied); i ++ 1
+			copied[i] = copy(copied[i])
+		end
+		return copied
+	else
+		return x
+	end
+end
+
+fun printArray(arr)
+	for let i = 0; i < len(arr); i ++ 1
+		if i > 0
+			print(", ")
+		end
+
+		print(arr[i])
+	end
+	println()
+end
+
+let a = [1, 10, 5, 8, "hello", "there"]
+let b = copy(a)
+
+for let i = 0; i < len(b); i ++ 1
+	if type(b[i]) == "number"
+		b[i] ** 2
+	elif type(b[i]) == "string"
+		for let j = 0; j < len(b[i]); j ++ 1
+			if b[i][j] == "r" or b[i][j] == "l"
+				b[i][j] = "w"
+			end
+		end
+	end
+end
+
+printArray(a)
+printArray(b)
