@@ -28,5 +28,10 @@ fun calculate(bottom, top)
 	return sum(filter(range(bottom, top), fun(x) return x % 2 == 0 end))
 end
 
+# TODO: syntax sugar for this
+# fun calculate(bottom, top)
+# 	return range(bottom, top):filter(fun(x) return x % 2 == 0 end):sum()
+# end
+
 println(calculate(2, 6))
 println(calculate(3, 25))

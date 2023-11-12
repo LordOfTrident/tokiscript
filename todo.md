@@ -1,4 +1,4 @@
-# TODO (75% done)
+# TODO (68% done)
 - [X] Basic "Hello, world!"
 - [X] Expressions
 - [X] Variables
@@ -14,6 +14,8 @@
 - [X] File IO
 - [X] Garbage collection
 - [X] Eval function
+- [ ] Importing files
+- [ ] Syntax sugar for functions (for example f(x) could be written as x:f(), like in lua)
 - [ ] Objects/structures
 - [ ] Maps
 - [ ] Proper type checking

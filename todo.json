@@ -91,6 +91,18 @@
 	},
 	{
 		"type": "task",
+		"title": "Importing files",
+		"desc": null,
+		"done": false
+	},
+	{
+		"type": "task",
+		"title": "Syntax sugar for functions (for example f(x) could be written as x:f(), like in lua)",
+		"desc": null,
+		"done": false
+	},
+	{
+		"type": "task",
 		"title": "Objects/structures",
 		"desc": null,
 		"done": false
