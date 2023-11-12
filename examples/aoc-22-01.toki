@@ -1,6 +1,6 @@
 # Rewritten from https://github.com/LordOfTrident/aoc-2022/blob/main/01/part1.pas
 
-fun forEachLine(str, func)
+fun foreachLine(str, func)
 	while true
 		let pos = "\n" in str, line = str[0, pos]
 
@@ -28,7 +28,7 @@ if content == nil
 	exit(1)
 end
 
-forEachLine(content, fun(line)
+foreachLine(content, fun(line)
 	if len(line) == 0
 		caloriesList ++ 0
 	else
@@ -37,9 +37,9 @@ forEachLine(content, fun(line)
 end)
 
 let most = 0
-for let i = 0; i < len(caloriesList); i ++ 1
-	if caloriesList[i] > most
-		most = caloriesList[i]
+foreach v in caloriesList
+	if v > most
+		most = v
 	end
 end
 

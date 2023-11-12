@@ -1698,11 +1698,16 @@ static void eval_stmt_foreach(env_t *e, stmt_t *stmt) {
 		error(stmt->where, "'foreach' can only iterate over strings and arrays");
 
 	++ e->breaks;
-	for (size_t i = 0; i < itOver.as.arr.size; ++ i) {
+	size_t len = itOver.type == VALUE_TYPE_STR? strlen(itOver.as.str) : itOver.as.arr.size;
+	for (size_t i = 0; i < len; ++ i) {
 		if (it != NULL)
 			it->val = value_num(i);
 
-		val->val = itOver.as.arr.buf[i];
+		if (itOver.type == VALUE_TYPE_STR) {
+			char buf[] = {itOver.as.str[i], '\0'};
+			val->val = gc_add_elem(&e->gc, value_str(strcpy_to_heap(buf)));
+		} else
+			val->val = itOver.as.arr.buf[i];
 
 		env_scope_begin(e);
 		eval(e, foreach->body, e->path);

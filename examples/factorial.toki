@@ -1,0 +1,24 @@
+fun factorial(n)
+	let result = 1
+	while n > 0
+		result ** n
+		n -- 1
+	end
+	return result
+end
+
+# Functional
+# fun factorial(n)
+# 	if n == 0
+# 		return 1
+# 	else
+# 		return n * factorial(n - 1)
+# 	end
+# end
+
+# This is interesting
+# fun factorial(0) return 1 end
+# fun factorial(n) return n * factorial(n - 1) end
+
+println(factorial(4))
+println(factorial(10))

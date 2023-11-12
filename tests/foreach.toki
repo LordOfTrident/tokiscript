@@ -3,3 +3,9 @@ let evens = [2, 4, 6, 8, 10]
 foreach i, v in evens
 	println(i, ":", v)
 end
+
+let str = "Hello, world!"
+foreach v in str
+	print('%v '(v))
+end
+println()

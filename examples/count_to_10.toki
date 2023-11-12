@@ -1,3 +1,8 @@
 for let i = 1; i <= 10; i ++ 1
 	println(i)
 end
+
+# TODO: Functional using standard library
+# foreach n in range(10)
+# 	println(n)
+# end
