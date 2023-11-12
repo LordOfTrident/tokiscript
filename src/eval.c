@@ -1679,6 +1679,47 @@ static void eval_stmt_for(env_t *e, stmt_t *stmt) {
 	env_scope_end(e);
 }
 
+static void eval_stmt_foreach(env_t *e, stmt_t *stmt) {
+	stmt_foreach_t *foreach = &stmt->as.foreach;
+	env_scope_begin(e);
+
+	var_t *it = NULL, *val = env_new_var(e, foreach->name, true);
+	if (val == NULL)
+		error(stmt->where, "Iteration value '%s' redeclared", foreach->name);
+
+	if (foreach->it != NULL) {
+		it = env_new_var(e, foreach->it, true);
+		if (it == NULL)
+			error(stmt->where, "Iterator '%s' redeclared", foreach->it);
+	}
+
+	value_t itOver = eval_expr(e, foreach->in);
+	if (itOver.type != VALUE_TYPE_STR && itOver.type != VALUE_TYPE_ARR)
+		error(stmt->where, "'foreach' can only iterate over strings and arrays");
+
+	++ e->breaks;
+	for (size_t i = 0; i < itOver.as.arr.size; ++ i) {
+		if (it != NULL)
+			it->val = value_num(i);
+
+		val->val = itOver.as.arr.buf[i];
+
+		env_scope_begin(e);
+		eval(e, foreach->body, e->path);
+		env_scope_end(e);
+		if (e->returning)
+			break;
+		else if (e->breaking) {
+			e->breaking = false;
+			break;
+		} else if (e->continuing)
+			e->continuing = false;
+	}
+	-- e->breaks;
+
+	env_scope_end(e);
+}
+
 static void eval_stmt_return(env_t *e, stmt_t *stmt) {
 	if (e->returns == 0)
 		error(stmt->where, "Unexpected return");
@@ -1736,6 +1777,7 @@ void eval(env_t *e, stmt_t *program, const char *path) {
 		case STMT_TYPE_IF:       eval_stmt_if(      e, stmt);          break;
 		case STMT_TYPE_WHILE:    eval_stmt_while(   e, stmt);          break;
 		case STMT_TYPE_FOR:      eval_stmt_for(     e, stmt);          break;
+		case STMT_TYPE_FOREACH:  eval_stmt_foreach( e, stmt);          break;
 		case STMT_TYPE_RETURN:   eval_stmt_return(  e, stmt);          break;
 		case STMT_TYPE_BREAK:    eval_stmt_break(   e, stmt);          break;
 		case STMT_TYPE_CONTINUE: eval_stmt_continue(e, stmt);          break;

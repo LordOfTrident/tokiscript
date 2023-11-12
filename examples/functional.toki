@@ -1,0 +1,32 @@
+fun sum(map)
+	let result = 0
+	foreach v in map
+		result ++ v
+	end
+	return result
+end
+
+fun filter(map, func)
+	let filtered = []
+	foreach v in map
+		if func(v)
+			filtered ++ v
+		end
+	end
+	return filtered
+end
+
+fun range(from, to)
+	let map = array(to - from + 1)
+	foreach i, _ in map
+		map[i] = from + i
+	end
+	return map
+end
+
+fun calculate(bottom, top)
+	return sum(filter(range(bottom, top), fun(x) return x % 2 == 0 end))
+end
+
+println(calculate(2, 6))
+println(calculate(3, 25))

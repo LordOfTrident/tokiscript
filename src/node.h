@@ -20,15 +20,16 @@ typedef struct expr_idx    expr_idx_t;
 typedef struct expr_fmt    expr_fmt_t;
 typedef struct expr_arr    expr_arr_t;
 
-typedef struct stmt        stmt_t;
-typedef struct stmt_let    stmt_let_t;
-typedef struct stmt_enum   stmt_enum_t;
-typedef struct stmt_if     stmt_if_t;
-typedef struct stmt_while  stmt_while_t;
-typedef struct stmt_for    stmt_for_t;
-typedef struct stmt_return stmt_return_t;
-typedef struct stmt_defer  stmt_defer_t;
-typedef struct stmt_fun    stmt_fun_t;
+typedef struct stmt         stmt_t;
+typedef struct stmt_let     stmt_let_t;
+typedef struct stmt_enum    stmt_enum_t;
+typedef struct stmt_if      stmt_if_t;
+typedef struct stmt_while   stmt_while_t;
+typedef struct stmt_for     stmt_for_t;
+typedef struct stmt_foreach stmt_foreach_t;
+typedef struct stmt_return  stmt_return_t;
+typedef struct stmt_defer   stmt_defer_t;
+typedef struct stmt_fun     stmt_fun_t;
 
 typedef enum {
 	EXPR_TYPE_VALUE = 0,
@@ -157,6 +158,7 @@ typedef enum {
 	STMT_TYPE_IF,
 	STMT_TYPE_WHILE,
 	STMT_TYPE_FOR,
+	STMT_TYPE_FOREACH,
 	STMT_TYPE_RETURN,
 	STMT_TYPE_DEFER,
 	STMT_TYPE_BREAK,
@@ -189,6 +191,12 @@ struct stmt_for {
 	stmt_t *body;
 };
 
+struct stmt_foreach {
+	char   *name, *it;
+	expr_t *in;
+	stmt_t *body;
+};
+
 struct stmt_return {
 	expr_t *expr;
 };
@@ -212,21 +220,22 @@ struct stmt {
 	stmt_type_t type;
 
 	union {
-		expr_t       *expr;
-		stmt_let_t    let;
-		stmt_if_t     if_;
-		stmt_while_t  while_;
-		stmt_for_t    for_;
-		stmt_return_t return_;
-		stmt_defer_t  defer;
-		stmt_fun_t    fun;
-		stmt_enum_t   enum_;
+		expr_t        *expr;
+		stmt_let_t     let;
+		stmt_if_t      if_;
+		stmt_while_t   while_;
+		stmt_for_t     for_;
+		stmt_foreach_t foreach;
+		stmt_return_t  return_;
+		stmt_defer_t   defer;
+		stmt_fun_t     fun;
+		stmt_enum_t    enum_;
 	} as;
 
 	stmt_t *next;
 };
 
-static_assert(STMT_TYPE_COUNT == 11); /* Add new statements to union */
+static_assert(STMT_TYPE_COUNT == 12); /* Add new statements to union */
 
 expr_t *expr_new(void);
 void    expr_free(expr_t *expr);

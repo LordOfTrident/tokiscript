@@ -46,6 +46,7 @@ static const char *token_type_to_keyword_map[TOKEN_TYPE_COUNT] = {
 	[TOKEN_TYPE_IF]       = "if",
 	[TOKEN_TYPE_WHILE]    = "while",
 	[TOKEN_TYPE_FOR]      = "for",
+	[TOKEN_TYPE_FOREACH]  = "foreach",
 	[TOKEN_TYPE_ELIF]     = "elif",
 	[TOKEN_TYPE_ELSE]     = "else",
 	[TOKEN_TYPE_END]      = "end",

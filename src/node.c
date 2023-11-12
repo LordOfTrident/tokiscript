@@ -113,6 +113,14 @@ void stmt_free(stmt_t *stmt) {
 		stmt_free(stmt->as.for_.body);
 		break;
 
+	case STMT_TYPE_FOREACH:
+		free(stmt->as.foreach.name);
+		if (stmt->as.foreach.it != NULL)
+			free(stmt->as.foreach.it);
+		expr_free(stmt->as.foreach.in);
+		stmt_free(stmt->as.foreach.body);
+		break;
+
 	case STMT_TYPE_RETURN:
 		expr_free(stmt->as.return_.expr);
 		break;

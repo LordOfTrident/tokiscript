@@ -657,6 +657,33 @@ static stmt_t *parse_stmt_for(parser_t *p) {
 	return stmt;
 }
 
+static stmt_t *parse_stmt_foreach(parser_t *p) {
+	stmt_t *stmt = stmt_new();
+	stmt->type   = STMT_TYPE_FOREACH;
+	stmt->where  = p->tok.where;
+
+	parser_skip(p);
+	char *name = p->tok.data;
+
+	parser_advance(p);
+	if (p->tok.type == TOKEN_TYPE_COMMA) {
+		parser_skip(p);
+		stmt->as.foreach.it   = name;
+		stmt->as.foreach.name = p->tok.data;
+		parser_advance(p);
+	} else
+		stmt->as.foreach.name = name;
+
+	if (p->tok.type != TOKEN_TYPE_IN)
+		error(p->tok.where, "Expected 'in', got '%s'", token_type_to_cstr(p->tok.type));
+
+	parser_skip(p);
+	stmt->as.foreach.in   = parse_expr(p);
+	stmt->as.foreach.body = parse_stmts(p);
+
+	return stmt;
+}
+
 static stmt_t *parse_stmt_return(parser_t *p) {
 	stmt_t *stmt = stmt_new();
 	stmt->type   = STMT_TYPE_RETURN;
@@ -717,6 +744,7 @@ static stmt_t *parse_stmt(parser_t *p) {
 	case TOKEN_TYPE_IF:       return parse_stmt_if(p);
 	case TOKEN_TYPE_WHILE:    return parse_stmt_while(p);
 	case TOKEN_TYPE_FOR:      return parse_stmt_for(p);
+	case TOKEN_TYPE_FOREACH:  return parse_stmt_foreach(p);
 	case TOKEN_TYPE_RETURN:   return parse_stmt_return(p);
 	case TOKEN_TYPE_DEFER:    return parse_stmt_defer(p);
 	case TOKEN_TYPE_BREAK:    return parse_stmt_break(p);
