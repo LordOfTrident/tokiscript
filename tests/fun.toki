@@ -1,11 +1,7 @@
-# TODO: Maybe allow this shortcut?
-# fun add(a, b)
-# 	return a + b
-# end
-
 println(println)
 
-(println)("Testing")
+# (5 + 2) # ERROR due to how the parser handles having no semicolons
+# (println)("Testing") # ERROR
 
 # OG way of defining a function
 const add = fun(a, b)

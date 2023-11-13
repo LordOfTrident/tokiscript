@@ -1,0 +1,9 @@
+foreach n in 1 .. 10
+	print(n, "")
+end
+println()
+
+foreach n in 1 ..! 11
+	print(n, "")
+end
+println()

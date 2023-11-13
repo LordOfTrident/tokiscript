@@ -1,0 +1,16 @@
+import "std.toki"
+
+fun PadTime(time) =
+	PadLeft(numtostr(time), 2, "0")
+
+let current
+while true
+	current = gettime()
+
+	print('\r%v-%v-%v %v:%v:%v '(
+		getyear(),          PadTime(getmonth()), PadTime(getday()),
+		PadTime(gethour()), PadTime(getmin()),   PadTime(getsec())))
+	flush()
+
+	while current == gettime() end
+end

@@ -3,7 +3,7 @@ if argc() > 1
 	iterations = strtonum(argat(1))
 end
 
-fun fib(n)
+fun Fib(n)
 	let num1 = 0, num2 = 1
 	print('%v, %v'(num1, num2))
 
@@ -18,4 +18,4 @@ fun fib(n)
 	println()
 end
 
-fib(iterations)
+Fib(iterations)

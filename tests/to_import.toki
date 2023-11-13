@@ -1,0 +1,5 @@
+println("Imported")
+
+fun test()
+	println("Hi from an imported function!")
+end

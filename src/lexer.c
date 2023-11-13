@@ -44,6 +44,7 @@ static const char *token_type_to_keyword_map[TOKEN_TYPE_COUNT] = {
 	[TOKEN_TYPE_ENUM]     = "enum",
 	[TOKEN_TYPE_CONST]    = "const",
 	[TOKEN_TYPE_IF]       = "if",
+	[TOKEN_TYPE_THEN]     = "then",
 	[TOKEN_TYPE_WHILE]    = "while",
 	[TOKEN_TYPE_FOR]      = "for",
 	[TOKEN_TYPE_FOREACH]  = "foreach",
@@ -60,6 +61,7 @@ static const char *token_type_to_keyword_map[TOKEN_TYPE_COUNT] = {
 	[TOKEN_TYPE_BREAK]    = "break",
 	[TOKEN_TYPE_CONTINUE] = "continue",
 	[TOKEN_TYPE_IN]       = "in",
+	[TOKEN_TYPE_IMPORT]   = "import",
 };
 
 static token_t lex_id(lexer_t *l) {
@@ -219,6 +221,27 @@ static token_t lex_equals(lexer_t *l) {
 		return token_new(strcpy_to_heap(l->tok), TOKEN_TYPE_ASSIGN, start);
 }
 
+static token_t lex_dot(lexer_t *l) {
+	where_t start = l->where;
+
+	lexer_tok_append(l, l->ch);
+	lexer_advance(l);
+
+	if (l->ch == '.') {
+		lexer_tok_append(l, l->ch);
+		lexer_advance(l);
+
+		if (l->ch == '!') {
+			lexer_tok_append(l, l->ch);
+			lexer_advance(l);
+
+			return token_new(strcpy_to_heap(l->tok), TOKEN_TYPE_ERANGE, start);
+		} else
+			return token_new(strcpy_to_heap(l->tok), TOKEN_TYPE_RANGE, start);
+	} else
+		return token_new_err("Unexpected character", start);
+}
+
 static token_t lex_add(lexer_t *l) {
 	where_t start = l->where;
 
@@ -281,7 +304,9 @@ token_t lexer_next(lexer_t *l) {
 		case ']': return lex_simple_sym(l, TOKEN_TYPE_RSQUARE);
 		case ',': return lex_simple_sym(l, TOKEN_TYPE_COMMA);
 		case ';': return lex_simple_sym(l, TOKEN_TYPE_SEMICOLON);
+		case ':': return lex_simple_sym(l, TOKEN_TYPE_COLON);
 
+		case '.': return lex_dot(l);
 		case '+': return lex_add(l);
 		case '-': return lex_sub(l);
 		case '*': return lex_mul(l);

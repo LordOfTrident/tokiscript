@@ -6,3 +6,9 @@ println(inline(`
 `))
 
 println("a =", a)
+
+fun test()
+	println("hi")
+end
+
+inline("test()")

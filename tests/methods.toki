@@ -1,0 +1,11 @@
+fun toupper(str)
+	let bytes = strtobytes(str)
+	foreach i, v in bytes
+		if v >= 97 and v <= 122
+			bytes[i] = v - 32
+		end
+	end
+	return bytestostr(bytes)
+end
+
+println("Hello, world!":toupper())

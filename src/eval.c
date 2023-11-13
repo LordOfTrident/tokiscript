@@ -124,6 +124,11 @@ void env_init(env_t *e, int argc, const char **argv) {
 	}
 
 	env_new_var(e, "PI", true)->val = value_num(3.1415926535);
+
+	e->to_free_cap = 32;
+	e->to_free     = (stmt_t**)malloc(sizeof(stmt_t*) * e->to_free_cap);
+	if (e->to_free == NULL)
+		UNREACHABLE("malloc() fail");
 }
 
 void env_deinit(env_t *e) {
@@ -139,6 +144,14 @@ void env_deinit(env_t *e) {
 	}
 
 	env_scope_end(e);
+
+	for (size_t i = 0; i < e->imported_count; ++ i)
+		free(e->imported[i]);
+
+	for (size_t i = 0; i < e->to_free_size; ++ i)
+		stmt_free(e->to_free[i]);
+
+	free(e->to_free);
 }
 
 static value_t eval_expr(env_t *e, expr_t *expr);
@@ -163,6 +176,10 @@ static void fprint_value(value_t value, FILE *file) {
 
 static value_t builtin_print(env_t *e, expr_t *expr) {
 	expr_call_t *call = &expr->as.call;
+
+// TODO: THIS GC BUG arguments get evalued one by one but when string is placed in GC and next arg
+// is a function call that calls the gc, it gets freed cuz nothing is holding it. maybe store
+// call arguments in temporary variables?
 
 	value_t list = value_arr(call->args_count);
 	for (size_t i = 0; i < call->args_count; ++ i)
@@ -298,7 +315,7 @@ static value_t builtin_exit(env_t *e, expr_t *expr) {
 	if (val.type != VALUE_TYPE_NUM)
 		wrong_type(expr->where, val.type, "'exit' function");
 
-	exit((int)val.as.num);
+	exit((int)round(val.as.num));
 }
 
 static value_t builtin_system(env_t *e, expr_t *expr) {
@@ -389,6 +406,17 @@ static value_t builtin_argc(env_t *e, expr_t *expr) {
 	return value_num(e->argc);
 }
 
+static value_t builtin_flush(env_t *e, expr_t *expr) {
+	UNUSED(e);
+	expr_call_t *call = &expr->as.call;
+
+	if (call->args_count != 0)
+		wrong_arg_count(expr->where, call->args_count, 0);
+
+	fflush(stdout);
+	return value_nil();
+}
+
 static value_t builtin_argat(env_t *e, expr_t *expr) {
 	expr_call_t *call = &expr->as.call;
 
@@ -399,7 +427,7 @@ static value_t builtin_argat(env_t *e, expr_t *expr) {
 	if (val.type != VALUE_TYPE_NUM)
 		wrong_type(expr->where, val.type, "'argat' function");
 
-	return value_str((char*)e->argv[(int)val.as.num]);
+	return value_str((char*)e->argv[(int)round(val.as.num)]);
 }
 
 static value_t builtin_strtonum(env_t *e, expr_t *expr) {
@@ -476,12 +504,12 @@ static value_t builtin_repeat(env_t *e, expr_t *expr) {
 	if (n.type != VALUE_TYPE_NUM)
 		wrong_type(expr->where, n.type, "'repeat' function argument #2");
 
-	char *repeated = (char*)malloc(strlen(str.as.str) * (int)n.as.num + 1);
+	char *repeated = (char*)malloc(strlen(str.as.str) * (int)round(n.as.num) + 1);
 	if (repeated == NULL)
 		UNREACHABLE("malloc() fail");
 
 	*repeated = '\0';
-	for (int i = 0; i < (int)n.as.num; ++ i)
+	for (int i = 0; i < (int)round(n.as.num); ++ i)
 		strcat(repeated, str.as.str);
 
 	return gc_add_elem(&e->gc, value_str(repeated));
@@ -583,7 +611,7 @@ static value_t builtin_fwritebytes(env_t *e, expr_t *expr) {
 			wrong_type(expr->where, bytes.as.arr.buf[i].type,
 			           "'fwritebytes' function argument #2 byte array");
 
-		fputc((int)bytes.as.arr.buf[i].as.num, file);
+		fputc((int)round(bytes.as.arr.buf[i].as.num), file);
 	}
 
 	fclose(file);
@@ -600,7 +628,7 @@ static value_t builtin_array(env_t *e, expr_t *expr) {
 	if (size.type != VALUE_TYPE_NUM)
 		wrong_type(expr->where, size.type, "'array' function");
 
-	value_t val = gc_add_elem(&e->gc, value_arr((size_t)size.as.num));
+	value_t val = gc_add_elem(&e->gc, value_arr((size_t)round(size.as.num)));
 
 	for (size_t i = 0; i < val.as.arr.size; ++ i)
 		val.as.arr.buf[i] = value_num(0);
@@ -621,7 +649,18 @@ static value_t builtin_inline(env_t *e, expr_t *expr) {
 		wrong_type(expr->where, str.type, "'inline' function");
 
 	stmt_t *program = parse(str.as.str, e->path);
-	return eval_with_return(e, program);
+	value_t ret     = eval_with_return(e, program);
+
+	if (e->to_free_size >= e->to_free_cap) {
+		e->to_free_cap *= 2;
+		e->to_free      = (stmt_t**)realloc(e->to_free, sizeof(stmt_t*) * e->to_free_cap);
+		if (e->to_free == NULL)
+			UNREACHABLE("malloc() fail");
+	}
+
+	e->to_free[e->to_free_size ++] = program;
+
+	return ret;
 }
 
 static value_t builtin_gc(env_t *e, expr_t *expr) {
@@ -634,7 +673,190 @@ static value_t builtin_gc(env_t *e, expr_t *expr) {
 	return value_nil();
 }
 
+static value_t builtin_strtobytes(env_t *e, expr_t *expr) {
+	expr_call_t *call = &expr->as.call;
+
+	if (call->args_count != 1)
+		wrong_arg_count(expr->where, call->args_count, 1);
+
+	value_t str = eval_expr(e, call->args[0]);
+	if (str.type != VALUE_TYPE_STR)
+		wrong_type(expr->where, str.type, "'strtobytes' function");
+
+	value_t bytes = gc_add_elem(&e->gc, value_arr(strlen(str.as.str)));
+
+	for (size_t i = 0; i < bytes.as.arr.size; ++ i)
+		bytes.as.arr.buf[i] = value_num((float)str.as.str[i]);
+
+	return bytes;
+}
+
+static value_t builtin_bytestostr(env_t *e, expr_t *expr) {
+	expr_call_t *call = &expr->as.call;
+
+	if (call->args_count != 1)
+		wrong_arg_count(expr->where, call->args_count, 1);
+
+	value_t bytes = eval_expr(e, call->args[0]);
+	if (bytes.type != VALUE_TYPE_ARR)
+		wrong_type(expr->where, bytes.type, "'bytestostr' function");
+
+	char *str = (char*)malloc(bytes.as.arr.size + 1);
+	if (str == NULL)
+		UNREACHABLE("malloc() fail");
+
+	for (size_t i = 0; i < bytes.as.arr.size; ++ i) {
+		if (bytes.as.arr.buf[i].type != VALUE_TYPE_NUM)
+			error(expr->where, "'bytestostr' function expected a byte array");
+		str[i] = (char)round(bytes.as.arr.buf[i].as.num);
+	}
+
+	str[bytes.as.arr.size] = '\0';
+	return gc_add_elem(&e->gc, value_str(str));
+}
+
+static value_t builtin_round(env_t *e, expr_t *expr) {
+	expr_call_t *call = &expr->as.call;
+
+	if (call->args_count != 1)
+		wrong_arg_count(expr->where, call->args_count, 1);
+
+	value_t val = eval_expr(e, call->args[0]);
+	if (val.type != VALUE_TYPE_NUM)
+		wrong_type(expr->where, val.type, "'round' function");
+
+	return value_num(round(val.as.num));
+}
+
+static value_t builtin_floor(env_t *e, expr_t *expr) {
+	expr_call_t *call = &expr->as.call;
+
+	if (call->args_count != 1)
+		wrong_arg_count(expr->where, call->args_count, 1);
+
+	value_t val = eval_expr(e, call->args[0]);
+	if (val.type != VALUE_TYPE_NUM)
+		wrong_type(expr->where, val.type, "'floor' function");
+
+	return value_num(floor(val.as.num));
+}
+
+static value_t builtin_ceil(env_t *e, expr_t *expr) {
+	expr_call_t *call = &expr->as.call;
+
+	if (call->args_count != 1)
+		wrong_arg_count(expr->where, call->args_count, 1);
+
+	value_t val = eval_expr(e, call->args[0]);
+	if (val.type != VALUE_TYPE_NUM)
+		wrong_type(expr->where, val.type, "'ceil' function");
+
+	return value_num(ceil(val.as.num));
+}
+
+static value_t builtin_abs(env_t *e, expr_t *expr) {
+	expr_call_t *call = &expr->as.call;
+
+	if (call->args_count != 1)
+		wrong_arg_count(expr->where, call->args_count, 1);
+
+	value_t val = eval_expr(e, call->args[0]);
+	if (val.type != VALUE_TYPE_NUM)
+		wrong_type(expr->where, val.type, "'abs' function");
+
+	return value_num(fabs(val.as.num));
+}
+
+static value_t builtin_gettime(env_t *e, expr_t *expr) {
+	UNUSED(e);
+	expr_call_t *call = &expr->as.call;
+
+	if (call->args_count != 0)
+		wrong_arg_count(expr->where, call->args_count, 0);
+
+	return value_num(time(NULL) * 1000);
+}
+
+static value_t builtin_getyear(env_t *e, expr_t *expr) {
+	UNUSED(e);
+	expr_call_t *call = &expr->as.call;
+
+	if (call->args_count != 0)
+		wrong_arg_count(expr->where, call->args_count, 0);
+
+	time_t    t  = time(NULL);
+	struct tm tm = *localtime(&t);
+
+	return value_num(tm.tm_year + 1900);
+}
+
+static value_t builtin_getmonth(env_t *e, expr_t *expr) {
+	UNUSED(e);
+	expr_call_t *call = &expr->as.call;
+
+	if (call->args_count != 0)
+		wrong_arg_count(expr->where, call->args_count, 0);
+
+	time_t    t  = time(NULL);
+	struct tm tm = *localtime(&t);
+
+	return value_num(tm.tm_mon + 1);
+}
+
+static value_t builtin_getday(env_t *e, expr_t *expr) {
+	UNUSED(e);
+	expr_call_t *call = &expr->as.call;
+
+	if (call->args_count != 0)
+		wrong_arg_count(expr->where, call->args_count, 0);
+
+	time_t    t  = time(NULL);
+	struct tm tm = *localtime(&t);
+
+	return value_num(tm.tm_mday);
+}
+
+static value_t builtin_gethour(env_t *e, expr_t *expr) {
+	UNUSED(e);
+	expr_call_t *call = &expr->as.call;
+
+	if (call->args_count != 0)
+		wrong_arg_count(expr->where, call->args_count, 0);
+
+	time_t    t  = time(NULL);
+	struct tm tm = *localtime(&t);
+
+	return value_num(tm.tm_hour);
+}
+
+static value_t builtin_getmin(env_t *e, expr_t *expr) {
+	UNUSED(e);
+	expr_call_t *call = &expr->as.call;
+
+	if (call->args_count != 0)
+		wrong_arg_count(expr->where, call->args_count, 0);
+
+	time_t    t  = time(NULL);
+	struct tm tm = *localtime(&t);
+
+	return value_num(tm.tm_min);
+}
+
+static value_t builtin_getsec(env_t *e, expr_t *expr) {
+	UNUSED(e);
+	expr_call_t *call = &expr->as.call;
+
+	if (call->args_count != 0)
+		wrong_arg_count(expr->where, call->args_count, 0);
+
+	time_t    t  = time(NULL);
+	struct tm tm = *localtime(&t);
+
+	return value_num(tm.tm_sec);
+}
+
 builtin_t builtins[BUILTINS_COUNT] = {
+	{.name = "flush",       .func = builtin_flush},
 	{.name = "println",     .func = builtin_println},
 	{.name = "print",       .func = builtin_print},
 	{.name = "len",         .func = builtin_len},
@@ -659,9 +881,22 @@ builtin_t builtins[BUILTINS_COUNT] = {
 	{.name = "array",       .func = builtin_array},
 	{.name = "inline",      .func = builtin_inline},
 	{.name = "gc",          .func = builtin_gc},
+	{.name = "strtobytes",  .func = builtin_strtobytes},
+	{.name = "bytestostr",  .func = builtin_bytestostr},
+	{.name = "round",       .func = builtin_round},
+	{.name = "floor",       .func = builtin_floor},
+	{.name = "ceil",        .func = builtin_ceil},
+	{.name = "abs",         .func = builtin_abs},
+	{.name = "gettime",     .func = builtin_gettime},
+	{.name = "getyear",     .func = builtin_getyear},
+	{.name = "getmonth",    .func = builtin_getmonth},
+	{.name = "getday",      .func = builtin_getday},
+	{.name = "gethour",     .func = builtin_gethour},
+	{.name = "getmin",      .func = builtin_getmin},
+	{.name = "getsec",      .func = builtin_getsec},
 };
 
-static_assert(BUILTINS_COUNT == 24); /* Update builtins count */
+static_assert(BUILTINS_COUNT == 38); /* Update builtins count */
 
 static value_t eval_with_return(env_t *e, stmt_t *stmt) {
 	++ e->returns;
@@ -684,7 +919,8 @@ static value_t eval_expr_call(env_t *e, expr_t *expr) {
 		expr_fun_t *fun = (expr_fun_t*)to_call.as.fun;
 
 		if (fun->args_count != call->args_count)
-			error(expr->where, "Incorrect amount of arguments in function call");
+			error(expr->where, "Function expected %i arguments, got %i",
+			      (int)fun->args_count, (int)call->args_count);
 
 		value_t evaled[ARGS_CAPACITY];
 		for (size_t i = 0; i < fun->args_count; ++ i)
@@ -700,6 +936,7 @@ static value_t eval_expr_call(env_t *e, expr_t *expr) {
 		value_t val = eval_with_return(e, fun->body);
 
 		env_scope_end(e);
+		e->return_ = value_nil();
 		return val;
 	}
 
@@ -736,7 +973,7 @@ static value_t eval_expr_fmt(env_t *e, expr_t *expr) {
 
 		if (prev != '%' && fmt->str[i] == '%' && fmt->str[i + 1] == 'v') {
 			if (arg >= fmt->args_count)
-				error(expr->where, "Unexpected string format at index %i", (int)i);
+				error(expr->where, "Unexpected string format at index %i", (int)round(i));
 
 			value_t value = eval_expr(e, fmt->args[arg ++]);
 
@@ -802,7 +1039,7 @@ static value_t eval_expr_idx(env_t *e, expr_t *expr) {
 		if (start.type != VALUE_TYPE_NUM)
 			wrong_type(expr->where, start.type, "'[]' operation start index");
 
-		int startPos = (int)start.as.num;
+		int startPos = (int)round(start.as.num);
 		if (startPos < 0)
 			error(expr->where, "Negative start index is not allowed");
 
@@ -810,7 +1047,7 @@ static value_t eval_expr_idx(env_t *e, expr_t *expr) {
 		if (end.type != VALUE_TYPE_NUM && end.type != VALUE_TYPE_NIL)
 			wrong_type(expr->where, end.type, "'[]' operation end index");
 
-		int endPos = end.type == VALUE_TYPE_NIL? 0 : (int)end.as.num;
+		int endPos = end.type == VALUE_TYPE_NIL? 0 : (int)round(end.as.num);
 		if (endPos < 0)
 			error(expr->where, "Negative end index is not allowed");
 
@@ -825,7 +1062,7 @@ static value_t eval_expr_idx(env_t *e, expr_t *expr) {
 			size_t len = strlen(to_idx.as.str);
 			if ((size_t)startPos >= len)
 				error(expr->where, "Start index exceeds string length");
-			else if ((size_t)endPos >= len)
+			else if ((size_t)endPos > len)
 				error(expr->where, "End index exceeds string length");
 
 			/* Very lazy */
@@ -839,7 +1076,7 @@ static value_t eval_expr_idx(env_t *e, expr_t *expr) {
 			size_t size = to_idx.as.arr.size;
 			if ((size_t)startPos >= size)
 				error(expr->where, "Start index exceeds array length");
-			else if ((size_t)endPos >= size)
+			else if ((size_t)endPos > size)
 				error(expr->where, "End index exceeds array length");
 
 			size = end.type == VALUE_TYPE_NIL? size - startPos : (size_t)endPos - startPos;
@@ -858,7 +1095,7 @@ static value_t eval_expr_idx(env_t *e, expr_t *expr) {
 		if (val.type != VALUE_TYPE_NUM)
 			wrong_type(expr->where, val.type, "'[]' operation index");
 
-		int pos = (int)val.as.num;
+		int pos = (int)round(val.as.num);
 		if (pos < 0)
 			error(expr->where, "Negative index is not allowed");
 
@@ -1029,12 +1266,12 @@ static value_t eval_expr_bin_op_assign(env_t *e, expr_t *expr) {
 
 		value_t target = eval_expr(e, idx->expr);
 		if (target.type == VALUE_TYPE_ARR) {
-			if ((size_t)pos.as.num >= target.as.arr.size)
+			if ((size_t)round(pos.as.num) >= target.as.arr.size)
 				error(expr->where, "Index exceeds array length");
 
-			target.as.arr.buf[(int)pos.as.num] = val;
+			target.as.arr.buf[(int)round(pos.as.num)] = val;
 		} else if (target.type == VALUE_TYPE_STR) {
-			if ((size_t)pos.as.num >= strlen(target.as.str))
+			if ((size_t)round(pos.as.num) >= strlen(target.as.str))
 				error(expr->where, "Index exceeds string length");
 
 			if (val.type != VALUE_TYPE_STR)
@@ -1043,7 +1280,7 @@ static value_t eval_expr_bin_op_assign(env_t *e, expr_t *expr) {
 			if (strlen(val.as.str) != 1)
 				error(expr->where, "Expected a single character");
 
-			target.as.str[(int)pos.as.num] = val.as.str[0];
+			target.as.str[(int)round(pos.as.num)] = val.as.str[0];
 		} else
 			error(expr->where, "Index assignment only allowed with arrays");
 
@@ -1086,16 +1323,16 @@ static value_t eval_expr_bin_op_inc(env_t *e, expr_t *expr) {
 
 		value_t target = eval_expr(e, idx->expr);
 		if (target.type == VALUE_TYPE_ARR) {
-			if ((size_t)pos.as.num >= target.as.arr.size)
+			if ((size_t)round(pos.as.num) >= target.as.arr.size)
 				error(expr->where, "Index exceeds array length");
 
-			if (val.type != target.as.arr.buf[(int)pos.as.num].type)
+			if (val.type != target.as.arr.buf[(int)round(pos.as.num)].type)
 				wrong_type(expr->where, val.type, "'++' assignment");
 
 			if (val.type != VALUE_TYPE_NUM)
 				wrong_type(expr->where, val.type, "left side of '++' assignment");
 
-			target.as.arr.buf[(int)pos.as.num].as.num += val.as.num;
+			target.as.arr.buf[(int)round(pos.as.num)].as.num += val.as.num;
 		} else
 			error(expr->where, "Index assignment only allowed with arrays");
 	} else if (bin_op->left->type == EXPR_TYPE_ID) {
@@ -1160,16 +1397,16 @@ static value_t eval_expr_bin_op_dec(env_t *e, expr_t *expr) {
 
 		value_t target = eval_expr(e, idx->expr);
 		if (target.type == VALUE_TYPE_ARR) {
-			if ((size_t)pos.as.num >= target.as.arr.size)
+			if ((size_t)round(pos.as.num) >= target.as.arr.size)
 				error(expr->where, "Index exceeds array length");
 
-			if (val.type != target.as.arr.buf[(int)pos.as.num].type)
+			if (val.type != target.as.arr.buf[(int)round(pos.as.num)].type)
 				wrong_type(expr->where, val.type, "'--' assignment");
 
 			if (val.type != VALUE_TYPE_NUM)
 				wrong_type(expr->where, val.type, "left side of '--' assignment");
 
-			target.as.arr.buf[(int)pos.as.num].as.num -= val.as.num;
+			target.as.arr.buf[(int)round(pos.as.num)].as.num -= val.as.num;
 		} else
 			error(expr->where, "Index assignment only allowed with arrays");
 	} else if (bin_op->left->type == EXPR_TYPE_ID) {
@@ -1213,16 +1450,16 @@ static value_t eval_expr_bin_op_xinc(env_t *e, expr_t *expr) {
 
 		value_t target = eval_expr(e, idx->expr);
 		if (target.type == VALUE_TYPE_ARR) {
-			if ((size_t)pos.as.num >= target.as.arr.size)
+			if ((size_t)round(pos.as.num) >= target.as.arr.size)
 				error(expr->where, "Index exceeds array length");
 
-			if (val.type != target.as.arr.buf[(int)pos.as.num].type)
+			if (val.type != target.as.arr.buf[(int)round(pos.as.num)].type)
 				wrong_type(expr->where, val.type, "'**' assignment");
 
 			if (val.type != VALUE_TYPE_NUM)
 				wrong_type(expr->where, val.type, "left side of '**' assignment");
 
-			target.as.arr.buf[(int)pos.as.num].as.num *= val.as.num;
+			target.as.arr.buf[(int)round(pos.as.num)].as.num *= val.as.num;
 		} else
 			error(expr->where, "Index assignment only allowed with arrays");
 	} else if (bin_op->left->type == EXPR_TYPE_ID) {
@@ -1266,16 +1503,16 @@ static value_t eval_expr_bin_op_xdec(env_t *e, expr_t *expr) {
 
 		value_t target = eval_expr(e, idx->expr);
 		if (target.type == VALUE_TYPE_ARR) {
-			if ((size_t)pos.as.num >= target.as.arr.size)
+			if ((size_t)round(pos.as.num) >= target.as.arr.size)
 				error(expr->where, "Index exceeds array length");
 
-			if (val.type != target.as.arr.buf[(int)pos.as.num].type)
+			if (val.type != target.as.arr.buf[(int)round(pos.as.num)].type)
 				wrong_type(expr->where, val.type, "'//' assignment");
 
 			if (val.type != VALUE_TYPE_NUM)
 				wrong_type(expr->where, val.type, "left side of '//' assignment");
 
-			target.as.arr.buf[(int)pos.as.num].as.num /= val.as.num;
+			target.as.arr.buf[(int)round(pos.as.num)].as.num /= val.as.num;
 		} else
 			error(expr->where, "Index assignment only allowed with arrays");
 	} else if (bin_op->left->type == EXPR_TYPE_ID) {
@@ -1477,6 +1714,30 @@ static value_t eval_expr_bin_op_in(env_t *e, expr_t *expr) {
 	return value_nil();
 }
 
+static value_t eval_expr_bin_op_range(env_t *e, expr_t *expr) {
+	expr_bin_op_t *bin_op = &expr->as.bin_op;
+
+	value_t left  = eval_expr(e, bin_op->left);
+	value_t right = eval_expr(e, bin_op->right);
+
+	if (left.type != VALUE_TYPE_NUM)
+		wrong_type(expr->where, left.type, "left side of '..' operation");
+	else if (right.type != VALUE_TYPE_NUM)
+		wrong_type(expr->where, right.type,
+		           "right side of '..' operation, expected same as left side");
+
+	size_t from = left.as.num;
+	size_t to   = right.as.num;
+
+	size_t  size = to - from + (bin_op->type == BIN_OP_RANGE);
+	value_t val  = gc_add_elem(&e->gc, value_arr(size));
+
+	for (size_t i = 0; i < val.as.arr.size; ++ i)
+		val.as.arr.buf[i] = value_num((size_t)round(left.as.num) + i);
+
+	return val;
+}
+
 static value_t eval_expr_bin_op(env_t *e, expr_t *expr) {
 	switch (expr->as.bin_op.type) {
 	case BIN_OP_EQUALS:      return eval_expr_bin_op_equals(     e, expr);
@@ -1486,9 +1747,11 @@ static value_t eval_expr_bin_op(env_t *e, expr_t *expr) {
 	case BIN_OP_LESS:        return eval_expr_bin_op_less(       e, expr);
 	case BIN_OP_LESS_EQU:    return eval_expr_bin_op_less_equ(   e, expr);
 
-	case BIN_OP_AND: return eval_expr_bin_op_and(e, expr);
-	case BIN_OP_OR:  return eval_expr_bin_op_or( e, expr);
-	case BIN_OP_IN:  return eval_expr_bin_op_in( e, expr);
+	case BIN_OP_AND:    return eval_expr_bin_op_and(   e, expr);
+	case BIN_OP_OR:     return eval_expr_bin_op_or(    e, expr);
+	case BIN_OP_IN:     return eval_expr_bin_op_in(    e, expr);
+	case BIN_OP_RANGE:  return eval_expr_bin_op_range( e, expr);
+	case BIN_OP_ERANGE: return eval_expr_bin_op_range( e, expr);
 
 	case BIN_OP_ASSIGN: return eval_expr_bin_op_assign(e, expr);
 	case BIN_OP_INC:    return eval_expr_bin_op_inc(   e, expr);
@@ -1547,11 +1810,25 @@ static value_t eval_expr_un_op(env_t *e, expr_t *expr) {
 	}
 }
 
+static value_t eval_expr_if(env_t *e, expr_t *expr) {
+	expr_if_t *if_ = &expr->as.if_;
+
+	value_t cond = eval_expr(e, if_->cond);
+	if (cond.type != VALUE_TYPE_BOOL)
+		wrong_type(expr->where, cond.type, "if statement condition");
+
+	if (cond.as.bool_)
+		return eval_expr(e, if_->a);
+	else
+		return eval_expr(e, if_->b);
+}
+
 static value_t eval_expr(env_t *e, expr_t *expr) {
 	switch (expr->type) {
 	case EXPR_TYPE_CALL:   return eval_expr_call(  e, expr);
 	case EXPR_TYPE_FMT:    return eval_expr_fmt(   e, expr);
 	case EXPR_TYPE_ARR:    return eval_expr_arr(   e, expr);
+	case EXPR_TYPE_IF:     return eval_expr_if(    e, expr);
 	case EXPR_TYPE_IDX:    return eval_expr_idx(   e, expr);
 	case EXPR_TYPE_ID:     return eval_expr_id(    e, expr);
 	case EXPR_TYPE_DO:     return eval_expr_do(    e, expr);
@@ -1693,21 +1970,25 @@ static void eval_stmt_foreach(env_t *e, stmt_t *stmt) {
 			error(stmt->where, "Iterator '%s' redeclared", foreach->it);
 	}
 
-	value_t itOver = eval_expr(e, foreach->in);
-	if (itOver.type != VALUE_TYPE_STR && itOver.type != VALUE_TYPE_ARR)
+	var_t *itOver = env_new_var(e, "#foreach", true);
+	assert(itOver != NULL);
+
+	itOver->val = eval_expr(e, foreach->in);
+	if (itOver->val.type != VALUE_TYPE_STR && itOver->val.type != VALUE_TYPE_ARR)
 		error(stmt->where, "'foreach' can only iterate over strings and arrays");
 
 	++ e->breaks;
-	size_t len = itOver.type == VALUE_TYPE_STR? strlen(itOver.as.str) : itOver.as.arr.size;
+	size_t len = itOver->val.type == VALUE_TYPE_STR?
+	             strlen(itOver->val.as.str) : itOver->val.as.arr.size;
 	for (size_t i = 0; i < len; ++ i) {
 		if (it != NULL)
 			it->val = value_num(i);
 
-		if (itOver.type == VALUE_TYPE_STR) {
-			char buf[] = {itOver.as.str[i], '\0'};
+		if (itOver->val.type == VALUE_TYPE_STR) {
+			char buf[] = {itOver->val.as.str[i], '\0'};
 			val->val = gc_add_elem(&e->gc, value_str(strcpy_to_heap(buf)));
 		} else
-			val->val = itOver.as.arr.buf[i];
+			val->val = itOver->val.as.arr.buf[i];
 
 		env_scope_begin(e);
 		eval(e, foreach->body, e->path);
@@ -1771,6 +2052,50 @@ static void eval_stmt_fun(env_t *e, stmt_t *stmt) {
 	var->val = eval_expr(e, fun->def);
 }
 
+static void eval_stmt_import(env_t *e, stmt_t *stmt) {
+	stmt_import_t *import = &stmt->as.import;
+
+	for (size_t i = 0; i < e->imported_count; ++ i) {
+		if (strcmp(e->imported[i], import->path) == 0)
+			return;
+	}
+
+	char *path = (char*)malloc(strlen(e->path) + strlen(import->path) + 1);
+	if (path == NULL)
+		UNREACHABLE("malloc() fail");
+
+	strcpy(path, e->path);
+	char *last = strrchr(path, '/');
+	if (last != NULL)
+		*last = '\0';
+	strcat(path, "/");
+	strcat(path, import->path);
+
+	char *str = readfile(path);
+	if (str == NULL)
+		error(stmt->where, "Cannot import '%s'", path);
+
+	stmt_t *imported = parse(str, path);
+	free(str);
+	const char *prev_path = e->path;
+	eval(e, imported, path);
+	e->path = prev_path;
+
+	e->imported[e->imported_count ++] = path;
+
+	if (e->to_free_size >= e->to_free_cap) {
+		e->to_free_cap *= 2;
+		e->to_free      = (stmt_t**)realloc(e->to_free, sizeof(stmt_t*) * e->to_free_cap);
+		if (e->to_free == NULL)
+			UNREACHABLE("realloc() fail");
+	}
+
+	e->to_free[e->to_free_size ++] = imported;
+
+	if (import->next != NULL)
+		eval_stmt_import(e, import->next);
+}
+
 void eval(env_t *e, stmt_t *program, const char *path) {
 	e->path = path;
 
@@ -1788,6 +2113,7 @@ void eval(env_t *e, stmt_t *program, const char *path) {
 		case STMT_TYPE_CONTINUE: eval_stmt_continue(e, stmt);          break;
 		case STMT_TYPE_DEFER:    eval_stmt_defer(   e, stmt);          break;
 		case STMT_TYPE_FUN:      eval_stmt_fun(     e, stmt);          break;
+		case STMT_TYPE_IMPORT:   eval_stmt_import(  e, stmt);          break;
 
 		default: UNREACHABLE("Unknown statement type");
 		}

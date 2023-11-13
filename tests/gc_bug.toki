@@ -1,0 +1,9 @@
+fun PerformOp(a, b)
+	return a + b
+	#inline("return a + b")
+end
+
+#let a = strtonum(argat(1)), op = argat(2), b = strtonum(argat(3))
+let a = 5, b = 2
+println(a, b, "lol", PerformOp(a, b))
+#println(a, "+", b, "=", PerformOp(a, b))

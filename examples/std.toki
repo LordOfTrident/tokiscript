@@ -1,0 +1,243 @@
+fun Sum(map)
+	let result = 0
+	foreach v in map
+		result ++ v
+	end
+	return result
+end
+
+fun Diff(map)
+	let result = 0
+	foreach v in map
+		result -- v
+	end
+	return result
+end
+
+fun Product(map)
+	let result = 0
+	foreach v in map
+		result ** v
+	end
+	return result
+end
+
+fun Quotient(map)
+	let result = 0
+	foreach v in map
+		result // v
+	end
+	return result
+end
+
+fun Filter(map, func)
+	let filtered = []
+	foreach v in map
+		if func(v)
+			filtered ++ v
+		end
+	end
+	return filtered
+end
+
+fun Reverse(map)
+	let reversed = []
+	for let i = map:len() - 1; i >= 0; i -- 1
+		reversed ++ map[i]
+	end
+	return reversed
+end
+
+fun Back(map, off) =
+	map[map:len() - off - 1]
+
+fun ModifBack(map, off, func)
+	let idx = map:len() - off - 1
+	map[idx] = func(map[idx])
+end
+
+fun Each(map, func)
+	foreach i, v in map
+		map[i] = func(v)
+	end
+	return map
+end
+
+fun Count(map, value)
+	let count = 0
+	foreach v in map
+		if v == value
+			count ++ 1
+		end
+	end
+	return count
+end
+
+fun CountIf(map, func)
+	let count = 0
+	foreach v in map
+		if func(v)
+			count ++ 1
+		end
+	end
+	return count
+end
+
+fun FindIf(map, func)
+	foreach i, v in map
+		if func(v)
+			return i
+		end
+	end
+	return nil
+end
+
+fun Get(map, init, func)
+	let x = init
+	foreach v in map
+		if func(v, x)
+			x = v
+		end
+	end
+	return x
+end
+
+fun Fill(map, value)
+	foreach i, _ in map
+		map[i] = value
+	end
+end
+
+fun Sort(map, func)
+	for let i = 0; i < map:len() - 1; i ++ 1
+		let swapped = false
+		for let j = 0; j < map:len() - i - 1; j ++ 1
+			if func(map[j], map[j + 1])
+				let tmp    = map[j]
+				map[j]     = map[j + 1]
+				map[j + 1] = tmp
+
+				if not swapped
+					swapped = true
+				end
+			end
+		end
+
+		if swapped == false
+			break
+		end
+	end
+	return map
+end
+
+fun IsEven(x) = x % 2 == 0
+fun IsOdd(x)  = x % 2 /= 0
+
+fun IsPrime(n) =
+	if n < 2 then false else (2 .. n / 2):FindIf(fun(x) = n % x == 0) == nil
+
+fun Evens(map)  = map:Filter(IsEven)
+fun Odds(map)   = map:Filter(IsOdd)
+fun Primes(map) = map:Filter(IsPrime)
+
+fun Copy(x) =
+	if type(x) == "string" or type(x) == "array" then x[0, nil] else x
+
+fun Dup(x)
+	if type(x) == "string"
+		return x[0, nil]
+	elif type(x) == "array"
+		return x[0, nil]:Each(fun(x) = x:Dup())
+	else
+		return x
+	end
+end
+
+fun ForeachDelimed(str, delim, func)
+    while true
+        let pos = delim in str, x = str[0, pos]
+
+        func(x)
+
+        if pos == nil
+            break
+        elif pos + 1 >= str:len()
+            break
+        end
+
+        str = str[pos + 1, nil]
+    end
+end
+
+fun Split(str, delim)
+	let split = []
+	ForeachDelimed(str, delim, fun(x)
+		split ++ x
+	end)
+	return split
+end
+
+fun Join(arr, delim)
+	let joined = ""
+	foreach i, v in arr
+		joined ++ if i == 0 then v else delim + v
+	end
+	return joined
+end
+
+fun CharToByte(char) = strtobytes(char)[0]
+fun ByteToChar(byte) = bytestostr([byte])
+
+fun IsUpper(code) = code >= 65 and code <= 90
+fun IsLower(code) = code >= 97 and code <= 122
+
+fun ToUpper(str) =
+	bytestostr(strtobytes(str):Each(fun(code) = if IsLower(code) then code - 32 else code))
+
+fun ToLower(str) =
+	bytestostr(strtobytes(str):Each(fun(code) = if IsUpper(code) then code + 32 else code))
+
+fun PadLeft(str, length, char) =
+	if str:len() < length then repeat(char, length - str:len()) + str else str[0, length]
+
+fun PadRight(str, length, char) =
+	if str:len() < length then str + repeat(char, length - str:len()) else str[0, length]
+
+#fun PadLeft(str, length, char)
+#	if str:len() < length
+#		return repeat(char, length - str:len()) + str
+#	else
+#		return str[0, length]
+#	end
+#end
+
+fun TrimLeft(str, chars)
+	foreach i, v in str
+		if v in chars == nil
+			return str[i, nil]
+		end
+	end
+
+	return ""
+end
+
+fun TrimRight(str, chars)
+	for let i = str:len() - 1; i >= 0; i -- 1
+		if str[i] in chars == nil
+			return str[0, i + 1]
+		end
+	end
+
+	return ""
+end
+
+fun Trim(str, chars) =
+	str:TrimLeft(chars):TrimRight(chars)
+
+const whitespaces = " \n\r\t\f\v"
+
+fun Assert(x, msg)
+	if not x
+		panic("Assertion failed:", msg)
+	end
+end

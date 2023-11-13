@@ -19,6 +19,7 @@ typedef struct expr_fun    expr_fun_t;
 typedef struct expr_idx    expr_idx_t;
 typedef struct expr_fmt    expr_fmt_t;
 typedef struct expr_arr    expr_arr_t;
+typedef struct expr_if     expr_if_t;
 
 typedef struct stmt         stmt_t;
 typedef struct stmt_let     stmt_let_t;
@@ -30,6 +31,7 @@ typedef struct stmt_foreach stmt_foreach_t;
 typedef struct stmt_return  stmt_return_t;
 typedef struct stmt_defer   stmt_defer_t;
 typedef struct stmt_fun     stmt_fun_t;
+typedef struct stmt_import  stmt_import_t;
 
 typedef enum {
 	EXPR_TYPE_VALUE = 0,
@@ -42,6 +44,7 @@ typedef enum {
 	EXPR_TYPE_IDX,
 	EXPR_TYPE_FMT,
 	EXPR_TYPE_ARR,
+	EXPR_TYPE_IF,
 
 	EXPR_TYPE_COUNT,
 } expr_type_t;
@@ -59,7 +62,7 @@ struct expr_id {
 };
 
 typedef enum {
-	BIN_OP_ADD = 0,
+	BIN_OP_ADD = 1,
 	BIN_OP_SUB,
 	BIN_OP_MUL,
 	BIN_OP_DIV,
@@ -82,6 +85,8 @@ typedef enum {
 	BIN_OP_AND,
 	BIN_OP_OR,
 	BIN_OP_IN,
+	BIN_OP_RANGE,
+	BIN_OP_ERANGE,
 
 	BIN_OP_TYPE_COUNT,
 } bin_op_type_t;
@@ -131,6 +136,10 @@ struct expr_arr {
 	size_t   size, cap;
 };
 
+struct expr_if {
+	expr_t *cond, *a, *b;
+};
+
 struct expr {
 	where_t     where;
 	expr_type_t type;
@@ -146,10 +155,11 @@ struct expr {
 		expr_idx_t    idx;
 		expr_fmt_t    fmt;
 		expr_arr_t    arr;
+		expr_if_t     if_;
 	} as;
 };
 
-static_assert(EXPR_TYPE_COUNT == 10); /* Add new expressions to union */
+static_assert(EXPR_TYPE_COUNT == 11); /* Add new expressions to union */
 
 typedef enum {
 	STMT_TYPE_EXPR = 0,
@@ -164,6 +174,7 @@ typedef enum {
 	STMT_TYPE_BREAK,
 	STMT_TYPE_CONTINUE,
 	STMT_TYPE_FUN,
+	STMT_TYPE_IMPORT,
 
 	STMT_TYPE_COUNT,
 } stmt_type_t;
@@ -215,6 +226,11 @@ struct stmt_enum {
 	stmt_t *next;
 };
 
+struct stmt_import {
+	char   *path;
+	stmt_t *next;
+};
+
 struct stmt {
 	where_t     where;
 	stmt_type_t type;
@@ -230,12 +246,13 @@ struct stmt {
 		stmt_defer_t   defer;
 		stmt_fun_t     fun;
 		stmt_enum_t    enum_;
+		stmt_import_t  import;
 	} as;
 
 	stmt_t *next;
 };
 
-static_assert(STMT_TYPE_COUNT == 12); /* Add new statements to union */
+static_assert(STMT_TYPE_COUNT == 13); /* Add new statements to union */
 
 expr_t *expr_new(void);
 void    expr_free(expr_t *expr);

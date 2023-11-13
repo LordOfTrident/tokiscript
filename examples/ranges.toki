@@ -1,0 +1,13 @@
+import "std.toki"
+
+fun PrintSpaceSeperated(map)
+	foreach n in map
+		print('%v '(n))
+	end
+	println()
+end
+
+println("Numbers from 0 to 20")
+print("Evens:  ") PrintSpaceSeperated((0 .. 20):Evens())
+print("Odds:   ") PrintSpaceSeperated((0 .. 20):Odds())
+print("Primes: ") PrintSpaceSeperated((0 .. 20):Primes())

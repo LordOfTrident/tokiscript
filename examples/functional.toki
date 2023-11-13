@@ -1,37 +1,7 @@
-fun sum(map)
-	let result = 0
-	foreach v in map
-		result ++ v
-	end
-	return result
-end
+import "std.toki"
 
-fun filter(map, func)
-	let filtered = []
-	foreach v in map
-		if func(v)
-			filtered ++ v
-		end
-	end
-	return filtered
-end
+fun Calculate(bottom, top) =
+	(bottom .. top):Evens():Sum()
 
-fun range(from, to)
-	let map = array(to - from + 1)
-	foreach i, _ in map
-		map[i] = from + i
-	end
-	return map
-end
-
-fun calculate(bottom, top)
-	return sum(filter(range(bottom, top), fun(x) return x % 2 == 0 end))
-end
-
-# TODO: syntax sugar for this
-# fun calculate(bottom, top)
-# 	return range(bottom, top):filter(fun(x) return x % 2 == 0 end):sum()
-# end
-
-println(calculate(2, 6))
-println(calculate(3, 25))
+println(Calculate(2, 6))
+println(Calculate(3, 25))

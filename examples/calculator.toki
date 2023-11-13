@@ -1,16 +1,15 @@
-fun isop(op)
-	return len(op) == 1 and op in "+-*/%^x" /= nil
-end
+fun IsOp(op) =
+	op:len() == 1 and op in "+-*/%^x" /= nil
 
-fun perform(a, b, op)
+fun PerformOp(a, b, op)
 	if op == "x"
 		op = "*"
 	end
 
-	return inline('return a %v b'(op))
+	inline('return a %v b'(op))
 end
 
-fun usage()
+fun Usage()
 	println("Usage:", argat(0), "-h | --help")
 	println("      ", argat(0), "<NUM> <OP> <NUM>")
 	println()
@@ -20,7 +19,7 @@ fun usage()
 	exit(0)
 end
 
-fun repl()
+fun Repl()
 	while true
 		let op = readstr("(in)")
 
@@ -30,9 +29,9 @@ fun repl()
 		elif op == "help"
 			println("Commands:   exit   help")
 			println("Operations: + - * x / % ^")
-		elif isop(op)
+		elif IsOp(op)
 			let a = readnum("a ="), b = readnum("b =")
-			println("(out)", a, op, b, "=", perform(a, b, op))
+			println("(out)", a, op, b, "=", PerformOp(a, b, op))
 		else
 			println('(err) Unknown operation "%v", try "help"'(op))
 		end
@@ -41,14 +40,14 @@ end
 
 if argc() > 1
 	if argat(1) == "-h" or argat(1) == "--help"
-		usage()
+		Usage()
 	elif argc() == 4
 		let a = strtonum(argat(1)), op = argat(2), b = strtonum(argat(3))
-		println(a, op, b, "=", perform(a, b, op))
+		println(a, op, b, "=", PerformOp(a, b, op))
 	else
 		println("(err) Unexpected arguments, try \"-h\"")
 		exit(1)
 	end
 else
-	repl()
+	Repl()
 end

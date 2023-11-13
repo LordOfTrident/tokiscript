@@ -1,0 +1,15 @@
+import "std.toki"
+
+while true
+	let cmd = readstr(">")
+
+	if cmd == "exit"
+		break
+	elif cmd[0, 2] == "l " and cmd:len() > 2
+		println(cmd[2, nil]:ToLower())
+	elif cmd[0, 2] == "u " and cmd:len() > 2
+		println(cmd[2, nil]:ToUpper())
+	else
+		println("Unknown command ('exit' to exit)")
+	end
+end

@@ -1,0 +1,3 @@
+import "std.toki"
+
+println("  \n \t \v   Hello, world! \t \r  \v\f \n":Trim(whitespaces))

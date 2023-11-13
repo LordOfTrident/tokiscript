@@ -19,10 +19,12 @@ static const char *token_type_to_cstr_map[TOKEN_TYPE_COUNT] = {
 	[TOKEN_TYPE_TRUE]  = "true",
 	[TOKEN_TYPE_FALSE] = "false",
 
+	[TOKEN_TYPE_IMPORT]   = "import",
 	[TOKEN_TYPE_LET]      = "let",
 	[TOKEN_TYPE_ENUM]     = "enum",
 	[TOKEN_TYPE_CONST]    = "const",
 	[TOKEN_TYPE_IF]       = "if",
+	[TOKEN_TYPE_THEN]     = "then",
 	[TOKEN_TYPE_WHILE]    = "while",
 	[TOKEN_TYPE_FOR]      = "for",
 	[TOKEN_TYPE_FOREACH]  = "foreach",
@@ -56,10 +58,13 @@ static const char *token_type_to_cstr_map[TOKEN_TYPE_COUNT] = {
 	[TOKEN_TYPE_LESS]        = "<",
 	[TOKEN_TYPE_LESS_EQU]    = "<=",
 
-	[TOKEN_TYPE_AND] = "and",
-	[TOKEN_TYPE_OR]  = "or",
-	[TOKEN_TYPE_NOT] = "not",
-	[TOKEN_TYPE_IN]  = "in",
+	[TOKEN_TYPE_AND]    = "and",
+	[TOKEN_TYPE_OR]     = "or",
+	[TOKEN_TYPE_NOT]    = "not",
+	[TOKEN_TYPE_IN]     = "in",
+	[TOKEN_TYPE_RANGE]  = "..",
+	[TOKEN_TYPE_ERANGE] = "..!",
+	[TOKEN_TYPE_COLON]  = ":",
 
 	[TOKEN_TYPE_LPAREN]    = "(",
 	[TOKEN_TYPE_RPAREN]    = ")",
@@ -71,7 +76,7 @@ static const char *token_type_to_cstr_map[TOKEN_TYPE_COUNT] = {
 	[TOKEN_TYPE_ERR] = "error",
 };
 
-static_assert(TOKEN_TYPE_COUNT == 52); /* Add the new token type to the map */
+static_assert(TOKEN_TYPE_COUNT == 57); /* Add the new token type to the map */
 
 bool token_type_is_bin_op(token_type_t type) {
 	switch (type) {

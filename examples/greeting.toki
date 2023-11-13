@@ -1,10 +1,10 @@
-fun greet(subject, question, func)
+fun Greet(subject, question, func)
 	func('Hello, %v! %v?'(subject, question))
 end
 
-greet("world", "How are you", println)
+Greet("world", "How are you", println)
 
-greet("moon",  "What are you doing", fun(msg)
+Greet("moon",  "What are you doing", fun(msg)
 	foreach ch in msg
 		print('%v '(ch))
 	end

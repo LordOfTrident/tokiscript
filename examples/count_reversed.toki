@@ -1,0 +1,10 @@
+import "std.toki"
+
+foreach n in (1 .. 10):Reverse()
+	println(n)
+end
+
+# Same as:
+# for let n = 10; n >= 1; n -- 1
+# 	println(n)
+# end

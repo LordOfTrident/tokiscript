@@ -1,0 +1,10 @@
+import "std.toki"
+
+fun PrintArray(arr)
+	foreach v in arr
+		print('"%v" '(v))
+	end
+	println()
+end
+
+PrintArray("Hello, world! How are you?":Split(" "))

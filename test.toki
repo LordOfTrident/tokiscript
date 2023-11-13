@@ -6,7 +6,7 @@ let tests       = [
 	"arr.toki",     "concat.toki",     "env.toki",    "file.toki",      "idx.toki",          "let.toki",     "slice.toki",
 	"assign.toki",  "const.toki",      "while.toki",  "fmt.toki",       "if.toki",           "matrix.toki",  "system.toki",
 	"bools.toki",   "defer.toki",      "exit.toki",   "for.toki",       "input.toki",        "nil.toki",     "type.toki",
-	"panic.toki",   "expr_error.toki", "error.toki",
+	"panic.toki",   "expr_error.toki", "error.toki",  "foreach.toki",   "import.toki",       "range.toki",   "methods.toki",
 ]
 
 let success = []

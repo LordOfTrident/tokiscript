@@ -1,46 +1,33 @@
 # Rewritten from https://github.com/LordOfTrident/aoc-2022/blob/main/01/part1.pas
-
-fun foreachLine(str, func)
-	while true
-		let pos = "\n" in str, line = str[0, pos]
-
-		func(line)
-
-		if pos == nil
-			break
-		elif pos + 1 >= len(str)
-			break
-		end
-
-		str = str[pos + 1, nil]
-	end
-end
-
-let inputPath = "examples/aoc-22-01-input.txt"
-if argc() > 1
-	inputPath = argat(1)
-end
+import "std.toki"
 
 let caloriesList = [0]
-let content = freadstr(inputPath)
-if content == nil
-	println('Failed to open file "%v"'(inputPath))
-	exit(1)
-end
-
-foreachLine(content, fun(line)
-	if len(line) == 0
+freadstr("examples/aoc-22-01-input.txt"):ForeachDelimed("\n", fun(line)
+	if line:len() == 0
 		caloriesList ++ 0
 	else
-		caloriesList[len(caloriesList) - 1] ++ strtonum(line)
+		caloriesList:ModifBack(0, fun(x) = x + strtonum(line))
 	end
 end)
 
-let most = 0
-foreach v in caloriesList
-	if v > most
-		most = v
-	end
-end
+println(caloriesList:Sort(fun(a, b) = a < b)[0])
 
-println(most)
+
+
+
+
+#println(caloriesList:Get(0, fun(x, most) = x > most))
+
+
+
+
+#const input = puzzleInput.value;
+#
+#const elfCalories = input
+#  .split('\n\n')
+#  .map(elf => {
+#    return elf
+#      .split('\n')
+#      .reduce((total, current) => total + Number(current.trim()), 0);
+#  })
+#  .sort((a, b) => b-a);

@@ -64,10 +64,16 @@ void expr_free(expr_t *expr) {
 		stmt_free(expr->as.fun.body);
 		break;
 
+	case EXPR_TYPE_IF:
+		expr_free(expr->as.if_.cond);
+		expr_free(expr->as.if_.a);
+		expr_free(expr->as.if_.b);
+		break;
+
 	default: break;
 	}
 
-	static_assert(EXPR_TYPE_COUNT == 10); /* Add code to free new expressions */
+	static_assert(EXPR_TYPE_COUNT == 11); /* Add code to free new expressions */
 
 	free(expr);
 }
@@ -137,6 +143,11 @@ void stmt_free(stmt_t *stmt) {
 	case STMT_TYPE_ENUM:
 		free(stmt->as.enum_.name);
 		stmt_free(stmt->as.enum_.next);
+		break;
+
+	case STMT_TYPE_IMPORT:
+		free(stmt->as.import.path);
+		stmt_free(stmt->as.import.next);
 		break;
 
 	default: break;

@@ -2,7 +2,7 @@
 #define EVAL_H_HEADER_GUARD
 
 #include <stdio.h>  /* printf, putchar */
-#include <string.h> /* strcmp, strlen, memset */
+#include <string.h> /* strcmp, strlen, memset, strcpy, strcat, strrchr */
 #include <assert.h> /* static_assert */
 #include <math.h>   /* pow */
 #include <time.h>   /* time */
@@ -36,6 +36,8 @@ typedef struct {
 	size_t   defer_count, defer_cap;
 } scope_t;
 
+#define MAX_IMPORTS 64
+
 typedef struct {
 	scope_t scopes[MAX_NEST], *scope;
 	size_t  returns, breaks;
@@ -45,7 +47,12 @@ typedef struct {
 	int argc;
 	const char **argv, *path;
 
-	gc_t gc;
+	char  *imported[MAX_IMPORTS];
+	size_t imported_count;
+
+	gc_t     gc;
+	stmt_t **to_free;
+	size_t   to_free_size, to_free_cap;
 } env_t;
 
 typedef value_t (*builtin_func_t)(env_t*, expr_t *expr);
@@ -55,7 +62,7 @@ typedef struct {
 	builtin_func_t func;
 } builtin_t;
 
-#define BUILTINS_COUNT 24
+#define BUILTINS_COUNT 38
 extern builtin_t builtins[BUILTINS_COUNT];
 
 void env_init(  env_t *e, int argc, const char **argv);

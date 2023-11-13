@@ -21,15 +21,18 @@ bin_op_type_t token_type_to_bin_op_type_map[TOKEN_TYPE_COUNT] = {
 	[TOKEN_TYPE_LESS]        = BIN_OP_LESS,
 	[TOKEN_TYPE_LESS_EQU]    = BIN_OP_LESS_EQU,
 
-	[TOKEN_TYPE_AND] = BIN_OP_AND,
-	[TOKEN_TYPE_OR]  = BIN_OP_OR,
-	[TOKEN_TYPE_IN]  = BIN_OP_IN,
+	[TOKEN_TYPE_AND]    = BIN_OP_AND,
+	[TOKEN_TYPE_OR]     = BIN_OP_OR,
+	[TOKEN_TYPE_IN]     = BIN_OP_IN,
+	[TOKEN_TYPE_RANGE]  = BIN_OP_RANGE,
+	[TOKEN_TYPE_ERANGE] = BIN_OP_ERANGE,
 };
 
 static bin_op_type_t token_type_to_bin_op_type(token_type_t type) {
 	if (type >= TOKEN_TYPE_COUNT)
 		UNREACHABLE("Invalid token type");
 
+	assert(token_type_to_bin_op_type_map[type] != 0);
 	return token_type_to_bin_op_type_map[type];
 }
 
@@ -224,22 +227,48 @@ static expr_t *parse_expr_fun(parser_t *p) {
 	}
 
 	parser_skip(p);
-	expr->as.fun.body = parse_stmts(p);
+
+	if (p->tok.type == TOKEN_TYPE_ASSIGN) {
+		stmt_t *return_ = stmt_new();
+		return_->type   = STMT_TYPE_RETURN;
+		return_->where  = p->tok.where;
+
+		parser_skip(p);
+		return_->as.return_.expr     = parse_expr(p);
+		expr->as.fun.body = return_;
+	} else
+		expr->as.fun.body = parse_stmts(p);
 	return expr;
 }
 
 static expr_t *parse_expr_factor(parser_t *p);
 
-static expr_t *parse_expr_un_op(parser_t *p) {
-	expr_t *node = expr_new();
-	node->type          = EXPR_TYPE_UN_OP;
-	node->where         = p->tok.where;
-	node->as.un_op.type = token_type_to_un_op_type(p->tok.type);
+static expr_t *parse_expr_if(parser_t *p) {
+	if (p->tok.type == TOKEN_TYPE_IF) {
+		token_t tok = p->tok;
+		parser_skip(p);
 
-	parser_skip(p);
-	node->as.un_op.expr = parse_expr_factor(p);
+		expr_t *node = expr_new();
+		node->type  = EXPR_TYPE_IF;
+		node->where = tok.where;
 
-	return node;
+		node->as.if_.cond = parse_expr(p);
+
+		if (p->tok.type != TOKEN_TYPE_THEN)
+			error(p->tok.where, "Expected 'then', got '%s'", token_type_to_cstr(p->tok.type));
+
+		parser_skip(p);
+		node->as.if_.a = parse_expr(p);
+
+		if (p->tok.type != TOKEN_TYPE_ELSE)
+			error(p->tok.where, "Expected 'else', got '%s'", token_type_to_cstr(p->tok.type));
+
+		parser_skip(p);
+		node->as.if_.b = parse_expr(p);
+
+		return node;
+	} else
+		return parse_expr(p);
 }
 
 static expr_t *parse_expr_factor(parser_t *p) {
@@ -252,6 +281,7 @@ static expr_t *parse_expr_factor(parser_t *p) {
 	case TOKEN_TYPE_NUM:     return parse_expr_num(p);
 	case TOKEN_TYPE_NIL:     return parse_expr_nil(p);
 	case TOKEN_TYPE_LSQUARE: return parse_expr_arr(p);
+	case TOKEN_TYPE_IF:      return parse_expr_if(p);
 	case TOKEN_TYPE_LPAREN: {
 		parser_skip(p);
 		expr_t *expr = parse_expr(p);
@@ -265,9 +295,7 @@ static expr_t *parse_expr_factor(parser_t *p) {
 	case TOKEN_TYPE_DO:  return parse_expr_do(p);
 	case TOKEN_TYPE_FUN: return parse_expr_fun(p);
 
-	case TOKEN_TYPE_ADD:
-	case TOKEN_TYPE_SUB:
-	case TOKEN_TYPE_NOT: return parse_expr_un_op(p);
+	case TOKEN_TYPE_COLON:
 
 	default: error(p->tok.where, "Unexpected token '%s'", token_type_to_cstr(p->tok.type));
 	}
@@ -275,64 +303,85 @@ static expr_t *parse_expr_factor(parser_t *p) {
 	return NULL;
 }
 
-static expr_t *parse_expr_idx(parser_t *p) {
+static expr_t *parse_expr_call_idx(parser_t *p) {
 	expr_t *expr = parse_expr_factor(p);
+	expr_t *arg  = NULL;
 
-	while (p->tok.type == TOKEN_TYPE_LSQUARE) {
-		expr_t *idx      = expr_new();
-		idx->where       = p->tok.where;
-		idx->type        = EXPR_TYPE_IDX;
-		idx->as.idx.expr = expr;
-
+colon:
+	if (p->tok.type == TOKEN_TYPE_COLON) {
+		arg = expr;
 		parser_skip(p);
-		idx->as.idx.start = parse_expr(p);
-
-		if (p->tok.type == TOKEN_TYPE_COMMA) {
-			parser_skip(p);
-			idx->as.idx.end = parse_expr(p);
-		}
-
-		if (p->tok.type != TOKEN_TYPE_RSQUARE)
-			error(p->tok.where, "Expected matching ']', got '%s'", token_type_to_cstr(p->tok.type));
-
-		parser_skip(p);
-		expr = idx;
+		expr = parse_expr_factor(p);
 	}
+
+	while (p->tok.type == TOKEN_TYPE_LSQUARE || p->tok.type == TOKEN_TYPE_LPAREN) {
+		if (p->tok.type == TOKEN_TYPE_LPAREN) {
+			expr_t *call       = expr_new();
+			call->where        = p->tok.where;
+			call->type         = EXPR_TYPE_CALL;
+			call->as.call.expr = expr;
+
+			parser_skip(p);
+			while (p->tok.type != TOKEN_TYPE_RPAREN) {
+				assert(call->as.call.args_count < ARGS_CAPACITY);
+
+				call->as.call.args[call->as.call.args_count ++] = parse_expr(p);
+
+				if (p->tok.type == TOKEN_TYPE_RPAREN)
+					break;
+				else if (p->tok.type != TOKEN_TYPE_COMMA)
+					error(p->tok.where, "Expected ',', got '%s'", token_type_to_cstr(p->tok.type));
+
+				parser_skip(p);
+			}
+
+			parser_skip(p);
+
+			if (arg != NULL) {
+				for (size_t i = call->as.call.args_count ++; i --> 0;)
+					call->as.call.args[i + 1] = call->as.call.args[i];
+
+				call->as.call.args[0] = arg;
+				arg = NULL;
+			}
+			expr = call;
+		} else {
+			if (arg != NULL)
+				error(expr->where, "Invalid method call");
+
+			expr_t *idx      = expr_new();
+			idx->where       = p->tok.where;
+			idx->type        = EXPR_TYPE_IDX;
+			idx->as.idx.expr = expr;
+
+			parser_skip(p);
+			idx->as.idx.start = parse_expr(p);
+
+			if (p->tok.type == TOKEN_TYPE_COMMA) {
+				parser_skip(p);
+				idx->as.idx.end = parse_expr(p);
+			}
+
+			if (p->tok.type != TOKEN_TYPE_RSQUARE)
+				error(p->tok.where, "Expected matching ']', got '%s'",
+				      token_type_to_cstr(p->tok.type));
+
+			parser_skip(p);
+			expr = idx;
+		}
+	}
+
+	if (arg != NULL)
+		error(expr->where, "Invalid method call");
+
+	if (p->tok.type == TOKEN_TYPE_COLON)
+		goto colon;
 
 	return expr;
 }
 
-static expr_t *parse_expr_call(parser_t *p) {
-	expr_t *expr = parse_expr_idx(p);
-
-	if (p->tok.type == TOKEN_TYPE_LPAREN) {
-		expr_t *call       = expr_new();
-		call->where        = p->tok.where;
-		call->type         = EXPR_TYPE_CALL;
-		call->as.call.expr = expr;
-
-		parser_skip(p);
-		while (p->tok.type != TOKEN_TYPE_RPAREN) {
-			assert(call->as.call.args_count < ARGS_CAPACITY);
-
-			call->as.call.args[call->as.call.args_count ++] = parse_expr(p);
-
-			if (p->tok.type == TOKEN_TYPE_RPAREN)
-				break;
-			else if (p->tok.type != TOKEN_TYPE_COMMA)
-				error(p->tok.where, "Expected ',', got '%s'", token_type_to_cstr(p->tok.type));
-
-			parser_skip(p);
-		}
-
-		parser_skip(p);
-		return call;
-	} else
-		return expr;
-}
-
 static expr_t *parse_expr_pow(parser_t *p) {
-	expr_t *left = parse_expr_call(p);
+	expr_t *left = parse_expr_call_idx(p);
 
 	while (p->tok.type == TOKEN_TYPE_POW) {
 		token_t tok = p->tok;
@@ -343,7 +392,7 @@ static expr_t *parse_expr_pow(parser_t *p) {
 		node->where = tok.where;
 
 		node->as.bin_op.left  = left;
-		node->as.bin_op.right = parse_expr_call(p);
+		node->as.bin_op.right = parse_expr_call_idx(p);
 		node->as.bin_op.type  = token_type_to_bin_op_type(tok.type);
 
 		left = node;
@@ -352,8 +401,24 @@ static expr_t *parse_expr_pow(parser_t *p) {
 	return left;
 }
 
+static expr_t *parse_expr_un_op(parser_t *p) {
+	if (p->tok.type == TOKEN_TYPE_ADD || p->tok.type == TOKEN_TYPE_SUB ||
+	    p->tok.type == TOKEN_TYPE_NOT) {
+		expr_t *node        = expr_new();
+		node->type          = EXPR_TYPE_UN_OP;
+		node->where         = p->tok.where;
+		node->as.un_op.type = token_type_to_un_op_type(p->tok.type);
+
+		parser_skip(p);
+		node->as.un_op.expr = parse_expr_pow(p);
+
+		return node;
+	} else
+		return parse_expr_pow(p);
+}
+
 static expr_t *parse_expr_term(parser_t *p) {
-	expr_t *left = parse_expr_pow(p);
+	expr_t *left = parse_expr_un_op(p);
 
 	while (p->tok.type == TOKEN_TYPE_MUL || p->tok.type == TOKEN_TYPE_DIV ||
 	       p->tok.type == TOKEN_TYPE_MOD) {
@@ -365,7 +430,7 @@ static expr_t *parse_expr_term(parser_t *p) {
 		node->where = tok.where;
 
 		node->as.bin_op.left  = left;
-		node->as.bin_op.right = parse_expr_pow(p);
+		node->as.bin_op.right = parse_expr_un_op(p);
 		node->as.bin_op.type  = token_type_to_bin_op_type(tok.type);
 
 		left = node;
@@ -471,8 +536,29 @@ static expr_t *parse_expr_logic(parser_t *p) {
 	return left;
 }
 
-static expr_t *parse_expr_inc(parser_t *p) {
+static expr_t *parse_expr_range(parser_t *p) {
 	expr_t *left = parse_expr_logic(p);
+
+	while (p->tok.type == TOKEN_TYPE_RANGE || p->tok.type == TOKEN_TYPE_ERANGE) {
+		token_t tok = p->tok;
+		parser_skip(p);
+
+		expr_t *node = expr_new();
+		node->type  = EXPR_TYPE_BIN_OP;
+		node->where = tok.where;
+
+		node->as.bin_op.left  = left;
+		node->as.bin_op.right = parse_expr_logic(p);
+		node->as.bin_op.type  = token_type_to_bin_op_type(tok.type);
+
+		left = node;
+	}
+
+	return left;
+}
+
+static expr_t *parse_expr_inc(parser_t *p) {
+	expr_t *left = parse_expr_range(p);
 
 	while (p->tok.type == TOKEN_TYPE_INC || p->tok.type == TOKEN_TYPE_XINC ||
 	       p->tok.type == TOKEN_TYPE_DEC || p->tok.type == TOKEN_TYPE_XDEC) {
@@ -484,7 +570,7 @@ static expr_t *parse_expr_inc(parser_t *p) {
 		node->where = tok.where;
 
 		node->as.bin_op.left  = left;
-		node->as.bin_op.right = parse_expr_logic(p);
+		node->as.bin_op.right = parse_expr_range(p);
 		node->as.bin_op.type  = token_type_to_bin_op_type(tok.type);
 
 		left = node;
@@ -736,6 +822,21 @@ static stmt_t *parse_stmt_fun(parser_t *p) {
 	return stmt;
 }
 
+static stmt_t *parse_stmt_import(parser_t *p) {
+	stmt_t *stmt = stmt_new();
+	stmt->type   = STMT_TYPE_IMPORT;
+	stmt->where  = p->tok.where;
+
+	parser_skip(p);
+	stmt->as.import.path = p->tok.data;
+
+	parser_advance(p);
+	if (p->tok.type == TOKEN_TYPE_COMMA)
+		stmt->as.import.next = parse_stmt_import(p);
+
+	return stmt;
+}
+
 static stmt_t *parse_stmt(parser_t *p) {
 	switch (p->tok.type) {
 	case TOKEN_TYPE_LET:
@@ -750,6 +851,7 @@ static stmt_t *parse_stmt(parser_t *p) {
 	case TOKEN_TYPE_BREAK:    return parse_stmt_break(p);
 	case TOKEN_TYPE_CONTINUE: return parse_stmt_continue(p);
 	case TOKEN_TYPE_FUN:      return parse_stmt_fun(p);
+	case TOKEN_TYPE_IMPORT:   return parse_stmt_import(p);
 
 	default: return parse_stmt_expr(p);
 	}

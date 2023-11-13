@@ -1,0 +1,38 @@
+import "std.toki"
+
+fun printArray(arr)
+	foreach i, v in arr
+		if i > 0
+			print(", ")
+		end
+
+		print(v)
+	end
+	println()
+end
+
+let a = [1, 10, 5, 8, "hello", "there"]
+let b = a:Dup()
+
+b:Each(fun(x)
+	if type(x) == "number"
+		return x * 2
+	elif type(x) == "string"
+		return x:Each(fun(ch) = if ch == "r" or ch == "l" then "w" else ch)
+	end
+end)
+
+#foreach i, v in b
+#	if type(v) == "number"
+#		b[i] ** 2
+#	elif type(v) == "string"
+#		foreach j, ch in v
+#			if ch == "r" or ch == "l"
+#				v[j] = "w"
+#			end
+#		end
+#	end
+#end
+
+printArray(a)
+printArray(b)
