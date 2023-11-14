@@ -1,0 +1,20 @@
+let called = false
+
+fun a()
+	if called
+		panic("oh noes!")
+	else
+		b()
+	end
+end
+
+fun b()
+	c()
+end
+
+fun c()
+	called = true
+	a()
+end
+
+a()

@@ -1,5 +1,8 @@
 #include "error.h"
 
+call_t *callstack      = NULL;
+size_t *callstack_size = NULL;
+
 void from(where_t where) {
 	color_bold(stderr);
 	fprintf(stderr, "%s:%i:%i: ", where.path, where.row, where.col);
@@ -24,6 +27,8 @@ void error(where_t where, const char *fmt, ...) {
 	color_reset(stderr);
 	fprintf(stderr, " %s\n", buf);
 
+	print_callstack();
+
 	exit(EXIT_FAILURE);
 }
 
@@ -37,4 +42,22 @@ void wrong_arg_count(where_t where, size_t got, size_t expected) {
 
 void undefined(where_t where, const char *name) {
 	error(where, "Undefined '%s'", name);
+}
+
+void print_callstack(void) {
+	if (callstack != NULL) {
+		for (size_t i = *callstack_size; i --> 0;) {
+			color_fg(stderr, COLOR_BMAGENTA);
+			color_bold(stderr);
+			fprintf(stderr, "  -> ");
+			color_reset(stderr);
+			color_bold(stderr);
+			fprintf(stderr, "%s:%i:%i: ",
+			        callstack[i].where.path, callstack[i].where.row, callstack[i].where.col);
+			color_fg(stderr, COLOR_GREY);
+			fprintf(stderr, "called from here\n");
+			color_reset(stderr);
+			//fprintf(stderr, " %s\n", callstack[i].name);
+		}
+	}
 }

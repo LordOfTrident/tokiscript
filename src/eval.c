@@ -129,9 +129,19 @@ void env_init(env_t *e, int argc, const char **argv) {
 	e->to_free     = (stmt_t**)malloc(sizeof(stmt_t*) * e->to_free_cap);
 	if (e->to_free == NULL)
 		UNREACHABLE("malloc() fail");
+
+	e->callstack_cap = 64;
+	e->callstack     = (call_t*)malloc(sizeof(call_t) * e->callstack_cap);
+	if (e->callstack == NULL)
+		UNREACHABLE("malloc() fail");
+
+	callstack      = e->callstack;
+	callstack_size = &e->callstack_size;
 }
 
 void env_deinit(env_t *e) {
+	env_scope_end(e);
+
 	for (size_t i = 0; i < MAX_NEST; ++ i) {
 		if (e->scopes[i].vars != NULL)
 			free(e->scopes[i].vars);
@@ -143,8 +153,6 @@ void env_deinit(env_t *e) {
 		e->scopes[i].defer_count = 0;
 	}
 
-	env_scope_end(e);
-
 	for (size_t i = 0; i < e->imported_count; ++ i)
 		free(e->imported[i]);
 
@@ -152,6 +160,9 @@ void env_deinit(env_t *e) {
 		stmt_free(e->to_free[i]);
 
 	free(e->to_free);
+	free(e->callstack);
+
+	callstack = NULL;
 }
 
 static value_t eval_expr(env_t *e, expr_t *expr);
@@ -174,36 +185,31 @@ static void fprint_value(value_t value, FILE *file) {
 	}
 }
 
-static value_t builtin_print(env_t *e, expr_t *expr) {
+static value_t builtin_print(env_t *e, expr_t *expr, value_t *args) {
+	UNUSED(e);
 	expr_call_t *call = &expr->as.call;
-
-// TODO: THIS GC BUG arguments get evalued one by one but when string is placed in GC and next arg
-// is a function call that calls the gc, it gets freed cuz nothing is holding it. maybe store
-// call arguments in temporary variables?
-
-	value_t list = value_arr(call->args_count);
-	for (size_t i = 0; i < call->args_count; ++ i)
-		list.as.arr.buf[i] = eval_expr(e, call->args[i]);
 
 	for (size_t i =0 ; i < call->args_count; ++ i) {
 		if (i > 0)
 			putchar(' ');
 
-		fprint_value(list.as.arr.buf[i], stdout);
+		fprint_value(args[i], stdout);
 	}
-	value_free(&list);
 
 	return value_nil();
 }
 
-static value_t builtin_println(env_t *e, expr_t *expr) {
-	builtin_print(e, expr);
+static value_t builtin_println(env_t *e, expr_t *expr, value_t *args) {
+	UNUSED(e);
+	UNUSED(args);
+	builtin_print(e, expr, args);
 	putchar('\n');
 
 	return value_nil();
 }
 
-static value_t builtin_panic(env_t *e, expr_t *expr) {
+static value_t builtin_panic(env_t *e, expr_t *expr, value_t *args) {
+	UNUSED(e);
 	expr_call_t *call = &expr->as.call;
 
 	color_bold(stderr);
@@ -214,21 +220,24 @@ static value_t builtin_panic(env_t *e, expr_t *expr) {
 
 	for (size_t i = 0; i < call->args_count; ++ i) {
 		fputc(' ', stderr);
-		fprint_value(eval_expr(e, call->args[i]), stderr);
+		fprint_value(args[i], stderr);
 	}
 
 	fputc('\n', stderr);
+
+	print_callstack();
 	exit(EXIT_FAILURE);
 }
 
-static value_t builtin_len(env_t *e, expr_t *expr) {
+static value_t builtin_len(env_t *e, expr_t *expr, value_t *args) {
+	UNUSED(e);
 	expr_call_t *call = &expr->as.call;
 
 	if (call->args_count != 1)
 		wrong_arg_count(expr->where, call->args_count, 1);
 
 	/* TODO: Make length be stored with the string pointer, so its faster */
-	value_t val = eval_expr(e, call->args[0]);
+	value_t val = args[0];
 	switch (val.type) {
 	case VALUE_TYPE_STR: return value_num(strlen(val.as.str));
 	case VALUE_TYPE_ARR: return value_num(val.as.arr.size);
@@ -239,12 +248,13 @@ static value_t builtin_len(env_t *e, expr_t *expr) {
 	return value_nil();
 }
 
-static value_t builtin_readnum(env_t *e, expr_t *expr) {
+static value_t builtin_readnum(env_t *e, expr_t *expr, value_t *args) {
+	UNUSED(e);
 	expr_call_t *call = &expr->as.call;
 
 	value_t list = value_arr(call->args_count);
 	for (size_t i = 0; i < call->args_count; ++ i)
-		list.as.arr.buf[i] = eval_expr(e, call->args[i]);
+		list.as.arr.buf[i] = args[i];
 
 	for (size_t i =0 ; i < call->args_count; ++ i) {
 		if (i > 0)
@@ -272,12 +282,13 @@ static value_t builtin_readnum(env_t *e, expr_t *expr) {
 	return value_num(val);
 }
 
-static value_t builtin_readstr(env_t *e, expr_t *expr) {
+static value_t builtin_readstr(env_t *e, expr_t *expr, value_t *args) {
+	UNUSED(e);
 	expr_call_t *call = &expr->as.call;
 
 	value_t list = value_arr(call->args_count);
 	for (size_t i = 0; i < call->args_count; ++ i)
-		list.as.arr.buf[i] = eval_expr(e, call->args[i]);
+		list.as.arr.buf[i] = args[i];
 
 	for (size_t i =0 ; i < call->args_count; ++ i) {
 		if (i > 0)
@@ -305,20 +316,22 @@ static value_t builtin_readstr(env_t *e, expr_t *expr) {
 	return gc_add_elem(&e->gc, value_str(strcpy_to_heap(buf)));
 }
 
-static value_t builtin_exit(env_t *e, expr_t *expr) {
+static value_t builtin_exit(env_t *e, expr_t *expr, value_t *args) {
+	UNUSED(e);
 	expr_call_t *call = &expr->as.call;
 
 	if (call->args_count != 1)
 		wrong_arg_count(expr->where, call->args_count, 1);
 
-	value_t val = eval_expr(e, call->args[0]);
+	value_t val = args[0];
 	if (val.type != VALUE_TYPE_NUM)
 		wrong_type(expr->where, val.type, "'exit' function");
 
 	exit((int)round(val.as.num));
 }
 
-static value_t builtin_system(env_t *e, expr_t *expr) {
+static value_t builtin_system(env_t *e, expr_t *expr, value_t *args) {
+	UNUSED(e);
 	expr_call_t *call = &expr->as.call;
 
 	size_t cap = 64, size = 0;
@@ -328,7 +341,7 @@ static value_t builtin_system(env_t *e, expr_t *expr) {
 
 	*str = '\0';
 	for (size_t i = 0; i < call->args_count; ++ i) {
-		value_t value   = eval_expr(e, call->args[i]);
+		value_t value   = args[i];
 		char    buf[64] = {0};
 		const char *add = NULL;
 
@@ -377,8 +390,9 @@ static value_t builtin_system(env_t *e, expr_t *expr) {
 	return value_num(result);
 }
 
-static value_t builtin_platform(env_t *e, expr_t *expr) {
+static value_t builtin_platform(env_t *e, expr_t *expr, value_t *args) {
 	UNUSED(e);
+	UNUSED(args);
 	expr_call_t *call = &expr->as.call;
 
 	if (call->args_count != 0)
@@ -397,7 +411,9 @@ static value_t builtin_platform(env_t *e, expr_t *expr) {
 #endif
 }
 
-static value_t builtin_argc(env_t *e, expr_t *expr) {
+static value_t builtin_argc(env_t *e, expr_t *expr, value_t *args) {
+	UNUSED(e);
+	UNUSED(args);
 	expr_call_t *call = &expr->as.call;
 
 	if (call->args_count != 0)
@@ -406,8 +422,9 @@ static value_t builtin_argc(env_t *e, expr_t *expr) {
 	return value_num(e->argc);
 }
 
-static value_t builtin_flush(env_t *e, expr_t *expr) {
+static value_t builtin_flush(env_t *e, expr_t *expr, value_t *args) {
 	UNUSED(e);
+	UNUSED(args);
 	expr_call_t *call = &expr->as.call;
 
 	if (call->args_count != 0)
@@ -417,26 +434,28 @@ static value_t builtin_flush(env_t *e, expr_t *expr) {
 	return value_nil();
 }
 
-static value_t builtin_argat(env_t *e, expr_t *expr) {
+static value_t builtin_argat(env_t *e, expr_t *expr, value_t *args) {
+	UNUSED(e);
 	expr_call_t *call = &expr->as.call;
 
 	if (call->args_count != 1)
 		wrong_arg_count(expr->where, call->args_count, 1);
 
-	value_t val = eval_expr(e, call->args[0]);
+	value_t val = args[0];
 	if (val.type != VALUE_TYPE_NUM)
 		wrong_type(expr->where, val.type, "'argat' function");
 
 	return value_str((char*)e->argv[(int)round(val.as.num)]);
 }
 
-static value_t builtin_strtonum(env_t *e, expr_t *expr) {
+static value_t builtin_strtonum(env_t *e, expr_t *expr, value_t *args) {
+	UNUSED(e);
 	expr_call_t *call = &expr->as.call;
 
 	if (call->args_count != 1)
 		wrong_arg_count(expr->where, call->args_count, 1);
 
-	value_t val = eval_expr(e, call->args[0]);
+	value_t val = args[0];
 	if (val.type != VALUE_TYPE_STR)
 		wrong_type(expr->where, val.type, "'strtonum' function");
 
@@ -448,13 +467,14 @@ static value_t builtin_strtonum(env_t *e, expr_t *expr) {
 		return value_num(n);
 }
 
-static value_t builtin_numtostr(env_t *e, expr_t *expr) {
+static value_t builtin_numtostr(env_t *e, expr_t *expr, value_t *args) {
+	UNUSED(e);
 	expr_call_t *call = &expr->as.call;
 
 	if (call->args_count != 1)
 		wrong_arg_count(expr->where, call->args_count, 1);
 
-	value_t val = eval_expr(e, call->args[0]);
+	value_t val = args[0];
 	if (val.type != VALUE_TYPE_NUM)
 		wrong_type(expr->where, val.type, "'numtostr' function");
 
@@ -463,13 +483,14 @@ static value_t builtin_numtostr(env_t *e, expr_t *expr) {
 	return gc_add_elem(&e->gc, value_str(strcpy_to_heap(buf)));
 }
 
-static value_t builtin_getenv(env_t *e, expr_t *expr) {
+static value_t builtin_getenv(env_t *e, expr_t *expr, value_t *args) {
+	UNUSED(e);
 	expr_call_t *call = &expr->as.call;
 
 	if (call->args_count != 1)
 		wrong_arg_count(expr->where, call->args_count, 1);
 
-	value_t val = eval_expr(e, call->args[0]);
+	value_t val = args[0];
 	if (val.type != VALUE_TYPE_STR)
 		wrong_type(expr->where, val.type, "'getenv' function");
 
@@ -480,27 +501,29 @@ static value_t builtin_getenv(env_t *e, expr_t *expr) {
 		return gc_add_elem(&e->gc, value_str(strcpy_to_heap(str)));
 }
 
-static value_t builtin_type(env_t *e, expr_t *expr) {
+static value_t builtin_type(env_t *e, expr_t *expr, value_t *args) {
+	UNUSED(e);
 	expr_call_t *call = &expr->as.call;
 
 	if (call->args_count != 1)
 		wrong_arg_count(expr->where, call->args_count, 1);
 
-	char *type = (char*)value_type_to_cstr(eval_expr(e, call->args[0]).type);
+	char *type = (char*)value_type_to_cstr(args[0].type);
 	return gc_add_elem(&e->gc, value_str(strcpy_to_heap(type)));
 }
 
-static value_t builtin_repeat(env_t *e, expr_t *expr) {
+static value_t builtin_repeat(env_t *e, expr_t *expr, value_t *args) {
+	UNUSED(e);
 	expr_call_t *call = &expr->as.call;
 
 	if (call->args_count != 2)
 		wrong_arg_count(expr->where, call->args_count, 2);
 
-	value_t str = eval_expr(e, call->args[0]);
+	value_t str = args[0];
 	if (str.type != VALUE_TYPE_STR)
 		wrong_type(expr->where, str.type, "'repeat' function argument #1");
 
-	value_t n = eval_expr(e, call->args[1]);
+	value_t n = args[1];
 	if (n.type != VALUE_TYPE_NUM)
 		wrong_type(expr->where, n.type, "'repeat' function argument #2");
 
@@ -515,8 +538,9 @@ static value_t builtin_repeat(env_t *e, expr_t *expr) {
 	return gc_add_elem(&e->gc, value_str(repeated));
 }
 
-static value_t builtin_rand(env_t *e, expr_t *expr) {
+static value_t builtin_rand(env_t *e, expr_t *expr, value_t *args) {
 	UNUSED(e);
+	UNUSED(args);
 	expr_call_t *call = &expr->as.call;
 
 	if (call->args_count != 0)
@@ -525,13 +549,14 @@ static value_t builtin_rand(env_t *e, expr_t *expr) {
 	return value_num(rand());
 }
 
-static value_t builtin_freadstr(env_t *e, expr_t *expr) {
+static value_t builtin_freadstr(env_t *e, expr_t *expr, value_t *args) {
+	UNUSED(e);
 	expr_call_t *call = &expr->as.call;
 
 	if (call->args_count != 1)
 		wrong_arg_count(expr->where, call->args_count, 1);
 
-	value_t path = eval_expr(e, call->args[0]);
+	value_t path = args[0];
 	if (path.type != VALUE_TYPE_STR)
 		wrong_type(expr->where, path.type, "'freadstr' function");
 
@@ -539,13 +564,14 @@ static value_t builtin_freadstr(env_t *e, expr_t *expr) {
 	return str == NULL? value_nil() : gc_add_elem(&e->gc, value_str(str));
 }
 
-static value_t builtin_freadbytes(env_t *e, expr_t *expr) {
+static value_t builtin_freadbytes(env_t *e, expr_t *expr, value_t *args) {
+	UNUSED(e);
 	expr_call_t *call = &expr->as.call;
 
 	if (call->args_count != 1)
 		wrong_arg_count(expr->where, call->args_count, 1);
 
-	value_t path = eval_expr(e, call->args[0]);
+	value_t path = args[0];
 	if (path.type != VALUE_TYPE_STR)
 		wrong_type(expr->where, path.type, "'freadbytes' function");
 
@@ -565,17 +591,18 @@ static value_t builtin_freadbytes(env_t *e, expr_t *expr) {
 	return bytes;
 }
 
-static value_t builtin_fwritestr(env_t *e, expr_t *expr) {
+static value_t builtin_fwritestr(env_t *e, expr_t *expr, value_t *args) {
+	UNUSED(e);
 	expr_call_t *call = &expr->as.call;
 
 	if (call->args_count != 2)
 		wrong_arg_count(expr->where, call->args_count, 2);
 
-	value_t path = eval_expr(e, call->args[0]);
+	value_t path = args[0];
 	if (path.type != VALUE_TYPE_STR)
 		wrong_type(expr->where, path.type, "'fwritestr' function argument #1");
 
-	value_t str = eval_expr(e, call->args[1]);
+	value_t str = args[1];
 	if (str.type != VALUE_TYPE_STR)
 		wrong_type(expr->where, str.type, "'fwritestr' function argument #2");
 
@@ -588,17 +615,18 @@ static value_t builtin_fwritestr(env_t *e, expr_t *expr) {
 	return value_nil();
 }
 
-static value_t builtin_fwritebytes(env_t *e, expr_t *expr) {
+static value_t builtin_fwritebytes(env_t *e, expr_t *expr, value_t *args) {
+	UNUSED(e);
 	expr_call_t *call = &expr->as.call;
 
 	if (call->args_count != 2)
 		wrong_arg_count(expr->where, call->args_count, 2);
 
-	value_t path = eval_expr(e, call->args[0]);
+	value_t path = args[0];
 	if (path.type != VALUE_TYPE_STR)
 		wrong_type(expr->where, path.type, "'fwritebytes' function argument #1");
 
-	value_t bytes = eval_expr(e, call->args[1]);
+	value_t bytes = args[1];
 	if (bytes.type != VALUE_TYPE_ARR)
 		wrong_type(expr->where, bytes.type, "'fwritebytes' function argument #2");
 
@@ -618,13 +646,14 @@ static value_t builtin_fwritebytes(env_t *e, expr_t *expr) {
 	return value_nil();
 }
 
-static value_t builtin_array(env_t *e, expr_t *expr) {
+static value_t builtin_array(env_t *e, expr_t *expr, value_t *args) {
+	UNUSED(e);
 	expr_call_t *call = &expr->as.call;
 
 	if (call->args_count != 1)
 		wrong_arg_count(expr->where, call->args_count, 1);
 
-	value_t size = eval_expr(e, call->args[0]);
+	value_t size = args[0];
 	if (size.type != VALUE_TYPE_NUM)
 		wrong_type(expr->where, size.type, "'array' function");
 
@@ -638,13 +667,14 @@ static value_t builtin_array(env_t *e, expr_t *expr) {
 
 static value_t eval_with_return(env_t *e, stmt_t *stmt);
 
-static value_t builtin_inline(env_t *e, expr_t *expr) {
+static value_t builtin_inline(env_t *e, expr_t *expr, value_t *args) {
+	UNUSED(e);
 	expr_call_t *call = &expr->as.call;
 
 	if (call->args_count != 1)
 		wrong_arg_count(expr->where, call->args_count, 1);
 
-	value_t str = eval_expr(e, call->args[0]);
+	value_t str = args[0];
 	if (str.type != VALUE_TYPE_STR)
 		wrong_type(expr->where, str.type, "'inline' function");
 
@@ -663,7 +693,9 @@ static value_t builtin_inline(env_t *e, expr_t *expr) {
 	return ret;
 }
 
-static value_t builtin_gc(env_t *e, expr_t *expr) {
+static value_t builtin_gc(env_t *e, expr_t *expr, value_t *args) {
+	UNUSED(e);
+	UNUSED(args);
 	expr_call_t *call = &expr->as.call;
 
 	if (call->args_count != 0)
@@ -673,13 +705,14 @@ static value_t builtin_gc(env_t *e, expr_t *expr) {
 	return value_nil();
 }
 
-static value_t builtin_strtobytes(env_t *e, expr_t *expr) {
+static value_t builtin_strtobytes(env_t *e, expr_t *expr, value_t *args) {
+	UNUSED(e);
 	expr_call_t *call = &expr->as.call;
 
 	if (call->args_count != 1)
 		wrong_arg_count(expr->where, call->args_count, 1);
 
-	value_t str = eval_expr(e, call->args[0]);
+	value_t str = args[0];
 	if (str.type != VALUE_TYPE_STR)
 		wrong_type(expr->where, str.type, "'strtobytes' function");
 
@@ -691,13 +724,14 @@ static value_t builtin_strtobytes(env_t *e, expr_t *expr) {
 	return bytes;
 }
 
-static value_t builtin_bytestostr(env_t *e, expr_t *expr) {
+static value_t builtin_bytestostr(env_t *e, expr_t *expr, value_t *args) {
+	UNUSED(e);
 	expr_call_t *call = &expr->as.call;
 
 	if (call->args_count != 1)
 		wrong_arg_count(expr->where, call->args_count, 1);
 
-	value_t bytes = eval_expr(e, call->args[0]);
+	value_t bytes = args[0];
 	if (bytes.type != VALUE_TYPE_ARR)
 		wrong_type(expr->where, bytes.type, "'bytestostr' function");
 
@@ -715,60 +749,65 @@ static value_t builtin_bytestostr(env_t *e, expr_t *expr) {
 	return gc_add_elem(&e->gc, value_str(str));
 }
 
-static value_t builtin_round(env_t *e, expr_t *expr) {
+static value_t builtin_round(env_t *e, expr_t *expr, value_t *args) {
+	UNUSED(e);
 	expr_call_t *call = &expr->as.call;
 
 	if (call->args_count != 1)
 		wrong_arg_count(expr->where, call->args_count, 1);
 
-	value_t val = eval_expr(e, call->args[0]);
+	value_t val = args[0];
 	if (val.type != VALUE_TYPE_NUM)
 		wrong_type(expr->where, val.type, "'round' function");
 
 	return value_num(round(val.as.num));
 }
 
-static value_t builtin_floor(env_t *e, expr_t *expr) {
+static value_t builtin_floor(env_t *e, expr_t *expr, value_t *args) {
+	UNUSED(e);
 	expr_call_t *call = &expr->as.call;
 
 	if (call->args_count != 1)
 		wrong_arg_count(expr->where, call->args_count, 1);
 
-	value_t val = eval_expr(e, call->args[0]);
+	value_t val = args[0];
 	if (val.type != VALUE_TYPE_NUM)
 		wrong_type(expr->where, val.type, "'floor' function");
 
 	return value_num(floor(val.as.num));
 }
 
-static value_t builtin_ceil(env_t *e, expr_t *expr) {
+static value_t builtin_ceil(env_t *e, expr_t *expr, value_t *args) {
+	UNUSED(e);
 	expr_call_t *call = &expr->as.call;
 
 	if (call->args_count != 1)
 		wrong_arg_count(expr->where, call->args_count, 1);
 
-	value_t val = eval_expr(e, call->args[0]);
+	value_t val = args[0];
 	if (val.type != VALUE_TYPE_NUM)
 		wrong_type(expr->where, val.type, "'ceil' function");
 
 	return value_num(ceil(val.as.num));
 }
 
-static value_t builtin_abs(env_t *e, expr_t *expr) {
+static value_t builtin_abs(env_t *e, expr_t *expr, value_t *args) {
+	UNUSED(e);
 	expr_call_t *call = &expr->as.call;
 
 	if (call->args_count != 1)
 		wrong_arg_count(expr->where, call->args_count, 1);
 
-	value_t val = eval_expr(e, call->args[0]);
+	value_t val = args[0];
 	if (val.type != VALUE_TYPE_NUM)
 		wrong_type(expr->where, val.type, "'abs' function");
 
 	return value_num(fabs(val.as.num));
 }
 
-static value_t builtin_gettime(env_t *e, expr_t *expr) {
+static value_t builtin_gettime(env_t *e, expr_t *expr, value_t *args) {
 	UNUSED(e);
+	UNUSED(args);
 	expr_call_t *call = &expr->as.call;
 
 	if (call->args_count != 0)
@@ -777,8 +816,9 @@ static value_t builtin_gettime(env_t *e, expr_t *expr) {
 	return value_num(time(NULL) * 1000);
 }
 
-static value_t builtin_getyear(env_t *e, expr_t *expr) {
+static value_t builtin_getyear(env_t *e, expr_t *expr, value_t *args) {
 	UNUSED(e);
+	UNUSED(args);
 	expr_call_t *call = &expr->as.call;
 
 	if (call->args_count != 0)
@@ -790,8 +830,9 @@ static value_t builtin_getyear(env_t *e, expr_t *expr) {
 	return value_num(tm.tm_year + 1900);
 }
 
-static value_t builtin_getmonth(env_t *e, expr_t *expr) {
+static value_t builtin_getmonth(env_t *e, expr_t *expr, value_t *args) {
 	UNUSED(e);
+	UNUSED(args);
 	expr_call_t *call = &expr->as.call;
 
 	if (call->args_count != 0)
@@ -803,8 +844,9 @@ static value_t builtin_getmonth(env_t *e, expr_t *expr) {
 	return value_num(tm.tm_mon + 1);
 }
 
-static value_t builtin_getday(env_t *e, expr_t *expr) {
+static value_t builtin_getday(env_t *e, expr_t *expr, value_t *args) {
 	UNUSED(e);
+	UNUSED(args);
 	expr_call_t *call = &expr->as.call;
 
 	if (call->args_count != 0)
@@ -816,8 +858,9 @@ static value_t builtin_getday(env_t *e, expr_t *expr) {
 	return value_num(tm.tm_mday);
 }
 
-static value_t builtin_gethour(env_t *e, expr_t *expr) {
+static value_t builtin_gethour(env_t *e, expr_t *expr, value_t *args) {
 	UNUSED(e);
+	UNUSED(args);
 	expr_call_t *call = &expr->as.call;
 
 	if (call->args_count != 0)
@@ -829,8 +872,9 @@ static value_t builtin_gethour(env_t *e, expr_t *expr) {
 	return value_num(tm.tm_hour);
 }
 
-static value_t builtin_getmin(env_t *e, expr_t *expr) {
+static value_t builtin_getmin(env_t *e, expr_t *expr, value_t *args) {
 	UNUSED(e);
+	UNUSED(args);
 	expr_call_t *call = &expr->as.call;
 
 	if (call->args_count != 0)
@@ -842,8 +886,9 @@ static value_t builtin_getmin(env_t *e, expr_t *expr) {
 	return value_num(tm.tm_min);
 }
 
-static value_t builtin_getsec(env_t *e, expr_t *expr) {
+static value_t builtin_getsec(env_t *e, expr_t *expr, value_t *args) {
 	UNUSED(e);
+	UNUSED(args);
 	expr_call_t *call = &expr->as.call;
 
 	if (call->args_count != 0)
@@ -914,7 +959,35 @@ static value_t eval_expr_call(env_t *e, expr_t *expr) {
 	expr_call_t *call = &expr->as.call;
 	value_t to_call = eval_expr(e, call->expr);
 	switch (to_call.type) {
-	case VALUE_TYPE_NAT: return to_call.as.nat(e, expr);
+	case VALUE_TYPE_NAT: {
+		++ e->builtin_nest;
+		value_t evaled[ARGS_CAPACITY];
+		for (size_t i = 0; i < call->args_count; ++ i) {
+			evaled[i] = eval_expr(e, call->args[i]);
+
+			char name[MAX_NEST + 3] = {'#', 'A' + i, '\0'};
+			for (size_t i = 0; i < e->builtin_nest; ++ i)
+				name[2 + i] = '_';
+			var_t *var = env_new_var(e, strcpy_to_heap(name), true);
+			assert(var != NULL);
+			var->val = evaled[i];
+		}
+
+		value_t val = to_call.as.nat(e, expr, evaled);
+		-- e->builtin_nest;
+
+		for (size_t i = 0; i < e->scope->vars_count; ++ i) {
+			if (e->scope->vars[i].name == NULL)
+				continue;
+
+			if (e->scope->vars[i].name[0] == '#' && e->scope->vars[i].name[1] <= 'Z') {
+				free(e->scope->vars[i].name);
+				e->scope->vars[i].name = NULL;
+			}
+		}
+		return val;
+	}
+
 	case VALUE_TYPE_FUN: {
 		expr_fun_t *fun = (expr_fun_t*)to_call.as.fun;
 
@@ -933,7 +1006,19 @@ static value_t eval_expr_call(env_t *e, expr_t *expr) {
 			var->val = evaled[i];
 		}
 
+		if (e->callstack_size >= e->callstack_cap) {
+			e->callstack_cap *= 2;
+			e->callstack      = (call_t*)realloc(e->callstack, sizeof(call_t) * e->callstack_cap);
+			if (e->callstack == NULL)
+				UNREACHABLE("malloc() fail");
+		}
+
+		callstack = e->callstack;
+		e->callstack[e->callstack_size ++].where = expr->where;
+
 		value_t val = eval_with_return(e, fun->body);
+
+		-- e->callstack_size;
 
 		env_scope_end(e);
 		e->return_ = value_nil();

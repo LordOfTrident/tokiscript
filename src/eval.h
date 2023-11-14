@@ -53,9 +53,13 @@ typedef struct {
 	gc_t     gc;
 	stmt_t **to_free;
 	size_t   to_free_size, to_free_cap;
+
+	size_t  builtin_nest;
+	call_t *callstack;
+	size_t  callstack_size, callstack_cap;
 } env_t;
 
-typedef value_t (*builtin_func_t)(env_t*, expr_t *expr);
+typedef value_t (*builtin_func_t)(env_t*, expr_t*, value_t*);
 
 typedef struct {
 	const char    *name;
