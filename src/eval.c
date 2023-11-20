@@ -2151,9 +2151,12 @@ static void eval_stmt_import(env_t *e, stmt_t *stmt) {
 
 	strcpy(path, e->path);
 	char *last = strrchr(path, '/');
-	if (last != NULL)
+	if (last != NULL) {
 		*last = '\0';
-	strcat(path, "/");
+		strcat(path, "/");
+	} else
+		*path = '\0';
+
 	strcat(path, import->path);
 
 	char *str = readfile(path);
