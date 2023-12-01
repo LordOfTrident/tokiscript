@@ -13,6 +13,10 @@
 	</a>
 </p>
 
+> [!WARNING]
+> This is a **very very slow language**, because while making it i did not care about performance
+> or good code. I just wanted to get it working to test stuff and play around.
+
 A simple dynamically typed interpreted language i decided to write in C for fun and practice.
 
 Clone this repo with
