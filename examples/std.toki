@@ -83,7 +83,7 @@ fun CountIf(map, func)
 	return count
 end
 
-fun FindIf(map, func)
+fun FindFirstIf(map, func)
 	foreach i, v in map
 		if func(v)
 			return i
@@ -92,7 +92,7 @@ fun FindIf(map, func)
 	return nil
 end
 
-fun ReverseFindIf(map, func)
+fun FindLastIf(map, func)
 	for let i = map:len() - 1; i >= 0; i -- 1
 		if func(map[i])
 			return i
@@ -143,7 +143,7 @@ fun IsEven(x) = x % 2 == 0
 fun IsOdd(x)  = x % 2 /= 0
 
 fun IsPrime(n) =
-	if n < 2 then false else (2 .. n / 2):FindIf(fun(x) = n % x == 0) == nil
+	if n < 2 then false else (2 .. n / 2):FindFirstIf(fun(x) = n % x == 0) == nil
 
 fun Evens(map)  = map:Filter(IsEven)
 fun Odds(map)   = map:Filter(IsOdd)
@@ -249,4 +249,30 @@ fun Assert(x, msg)
 	if not x
 		panic("Assertion failed:", msg)
 	end
+end
+
+fun FindFirstSubstr(str, substr) = substr in str
+
+fun FindLastSubstr(str, substr)
+	let substrLen = substr:len(), strLen = str:len()
+
+	if substrLen > strLen
+		return nil
+	end
+
+	for let i = strLen - substrLen; i >= 0; i -- 1
+		let matched = true
+		for let j = 0; j < substrLen; j ++ 1
+			if str[i + j] /= substr[j]
+				matched = false
+				break
+			end
+		end
+
+		if matched
+			return i
+		end
+	end
+
+	return nil
 end

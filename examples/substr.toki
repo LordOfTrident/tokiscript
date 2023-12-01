@@ -1,0 +1,10 @@
+import "std.toki"
+
+println("Hello, world, hello!":FindFirstSubstr("ello"))
+println("Hello, world, hello!":FindLastSubstr("ello"))
+
+println("hello":FindFirstSubstr("hello"))
+println("hello":FindLastSubstr("hello"))
+
+println("hello":FindFirstSubstr("helloa"))
+println("hello":FindLastSubstr("helloa"))
