@@ -12,7 +12,7 @@
 #include "parser.h"
 #include "eval.h"
 
-#define APP_NAME "tokiscript"
+#define APP_NAME "toki"
 #define USAGE    "<PATH | OPTIONS> [...]"
 
 #define VERSION_MAJOR 1
