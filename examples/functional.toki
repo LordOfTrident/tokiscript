@@ -5,3 +5,5 @@ fun Calculate(bottom, top) =
 
 println(Calculate(2, 6))
 println(Calculate(3, 25))
+
+println((0 .. 10):ReverseFindIf(IsOdd))
