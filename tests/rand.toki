@@ -1,0 +1,4 @@
+foreach n in (0 .. 1000)
+	print(rand() % 1000, "")
+end
+println()

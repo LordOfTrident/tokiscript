@@ -549,6 +549,21 @@ static value_t builtin_rand(env_t *e, expr_t *expr, value_t *args) {
 	return value_num(rand());
 }
 
+static value_t builtin_srand(env_t *e, expr_t *expr, value_t *args) {
+	UNUSED(e);
+	expr_call_t *call = &expr->as.call;
+
+	if (call->args_count != 1)
+		wrong_arg_count(expr->where, call->args_count, 1);
+
+	value_t seed = args[0];
+	if (seed.type != VALUE_TYPE_NUM)
+		wrong_type(expr->where, seed.type, "'srand' function");
+
+	srand((int)seed.as.num);
+	return value_nil();
+}
+
 static value_t builtin_freadstr(env_t *e, expr_t *expr, value_t *args) {
 	UNUSED(e);
 	expr_call_t *call = &expr->as.call;
@@ -919,6 +934,7 @@ builtin_t builtins[BUILTINS_COUNT] = {
 	{.name = "type",        .func = builtin_type},
 	{.name = "repeat",      .func = builtin_repeat},
 	{.name = "rand",        .func = builtin_rand},
+	{.name = "srand",       .func = builtin_srand},
 	{.name = "freadstr",    .func = builtin_freadstr},
 	{.name = "freadbytes",  .func = builtin_freadbytes},
 	{.name = "fwritestr",   .func = builtin_fwritestr},
@@ -941,7 +957,7 @@ builtin_t builtins[BUILTINS_COUNT] = {
 	{.name = "getsec",      .func = builtin_getsec},
 };
 
-static_assert(BUILTINS_COUNT == 38); /* Update builtins count */
+static_assert(BUILTINS_COUNT == 39); /* Update builtins count */
 
 static value_t eval_with_return(env_t *e, stmt_t *stmt) {
 	++ e->returns;
