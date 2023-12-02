@@ -7,3 +7,4 @@ println(Calculate(2, 6))
 println(Calculate(3, 25))
 
 println((0 .. 10):FindLastIf(IsOdd))
+println((5 .. 10):GetFirstIf(fun(x) = x % 2 == 0))

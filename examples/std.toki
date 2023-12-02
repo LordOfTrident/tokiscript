@@ -83,6 +83,24 @@ fun CountIf(map, func)
 	return count
 end
 
+fun GetFirstIf(map, func)
+	foreach v in map
+		if func(v)
+			return v
+		end
+	end
+	return nil
+end
+
+fun GetLastIf(map, func)
+	for let i = map:len() - 1; i >= 0; i -- 1
+		if func(map[i])
+			return map[i]
+		end
+	end
+	return nil
+end
+
 fun FindFirstIf(map, func)
 	foreach i, v in map
 		if func(v)
