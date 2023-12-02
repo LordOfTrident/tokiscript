@@ -174,7 +174,7 @@ fun ForeachDelimed(str, delim, func)
             break
         end
 
-        str = str[pos + 1, nil]
+        str = str[pos + delim:len(), nil]
     end
 end
 
