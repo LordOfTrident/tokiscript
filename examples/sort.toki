@@ -1,0 +1,18 @@
+import "std.toki"
+
+let test = array(100)
+foreach i, v in test
+	test[i] = rand() % 100
+end
+
+println("Insertion sort:")
+foreach v in test:Copy():InsertionSort(fun(a, b) = a < b)
+	print(v, " ")
+end
+println()
+
+println("Bubblesort:")
+foreach v in test:Copy():Sort(fun(a, b) = a < b)
+	print(v, " ")
+end
+println()
