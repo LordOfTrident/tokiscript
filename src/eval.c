@@ -107,7 +107,7 @@ static var_t *env_get_var(env_t *e, char *name) {
 void env_init(env_t *e, int argc, const char **argv) {
 	memset(e, 0, sizeof(*e));
 
-	srand(rand() % time(NULL));
+	srand(time(NULL));
 
 	e->argc = argc;
 	e->argv = argv;
