@@ -1746,12 +1746,15 @@ static value_t eval_expr_bin_op_mod(env_t *e, expr_t *expr) {
 static value_t eval_expr_bin_op_and(env_t *e, expr_t *expr) {
 	expr_bin_op_t *bin_op = &expr->as.bin_op;
 
-	value_t left  = eval_expr(e, bin_op->left);
-	value_t right = eval_expr(e, bin_op->right);
-
+	value_t left = eval_expr(e, bin_op->left);
 	if (left.type != VALUE_TYPE_BOOL)
 		wrong_type(expr->where, left.type, "left side of 'and' operation");
-	else if (right.type != VALUE_TYPE_BOOL)
+
+	if (!left.as.bool_)
+		return left;
+
+	value_t right = eval_expr(e, bin_op->right);
+	if (right.type != VALUE_TYPE_BOOL)
 		wrong_type(expr->where, right.type,
 		           "right side of 'and' operation, expected same as left side");
 
@@ -1762,12 +1765,15 @@ static value_t eval_expr_bin_op_and(env_t *e, expr_t *expr) {
 static value_t eval_expr_bin_op_or(env_t *e, expr_t *expr) {
 	expr_bin_op_t *bin_op = &expr->as.bin_op;
 
-	value_t left  = eval_expr(e, bin_op->left);
-	value_t right = eval_expr(e, bin_op->right);
-
+	value_t left = eval_expr(e, bin_op->left);
 	if (left.type != VALUE_TYPE_BOOL)
 		wrong_type(expr->where, left.type, "left side of 'or' operation");
-	else if (right.type != VALUE_TYPE_BOOL)
+
+	if (left.as.bool_)
+		return left;
+
+	value_t right = eval_expr(e, bin_op->right);
+	if (right.type != VALUE_TYPE_BOOL)
 		wrong_type(expr->where, right.type,
 		           "right side of 'or' operation, expected same as left side");
 
