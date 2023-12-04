@@ -133,6 +133,7 @@ fun Fill(map, value)
 	foreach i, _ in map
 		map[i] = value
 	end
+	return map
 end
 
 fun Sort(map, func)
