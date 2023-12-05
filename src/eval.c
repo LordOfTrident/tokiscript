@@ -1427,13 +1427,34 @@ static value_t eval_expr_bin_op_inc(env_t *e, expr_t *expr) {
 			if ((size_t)round(pos.as.num) >= target.as.arr.size)
 				error(expr->where, "Index exceeds array length");
 
-			if (val.type != target.as.arr.buf[(int)round(pos.as.num)].type)
-				wrong_type(expr->where, val.type, "'++' assignment");
+			if (target.as.arr.buf[(int)round(pos.as.num)].type == VALUE_TYPE_NUM) {
+				if (val.type != target.as.arr.buf[(int)round(pos.as.num)].type)
+					wrong_type(expr->where, val.type, "'++' assignment");
 
-			if (val.type != VALUE_TYPE_NUM)
+				target.as.arr.buf[(int)round(pos.as.num)].as.num += val.as.num;
+			} else if (target.as.arr.buf[(int)round(pos.as.num)].type == VALUE_TYPE_STR) {
+				if (val.type != target.as.arr.buf[(int)round(pos.as.num)].type)
+					wrong_type(expr->where, val.type, "'++' assignment");
+
+				value_t *str = &target.as.arr.buf[(int)round(pos.as.num)];
+				char *concatted = (char*)malloc(strlen(str->as.str) + strlen(val.as.str) + 1);
+				if (concatted == NULL)
+					UNREACHABLE("malloc() fail");
+
+				strcpy(concatted, str->as.str);
+				strcat(concatted, val.as.str);
+				str->as.str = concatted;
+				return gc_add_elem(&e->gc, *str);
+			} else if (target.as.arr.buf[(int)round(pos.as.num)].type == VALUE_TYPE_ARR) {
+				value_t *arr = &target.as.arr.buf[(int)round(pos.as.num)];
+				value_t  new = gc_add_elem(&e->gc, value_arr(arr->as.arr.size + 1));
+				for (size_t i = 0; i < arr->as.arr.size; ++ i)
+					new.as.arr.buf[i] = arr->as.arr.buf[i];
+
+				new.as.arr.buf[arr->as.arr.size] = val;
+				*arr = new;
+			} else
 				wrong_type(expr->where, val.type, "left side of '++' assignment");
-
-			target.as.arr.buf[(int)round(pos.as.num)].as.num += val.as.num;
 		} else
 			error(expr->where, "Index assignment only allowed with arrays");
 	} else if (bin_op->left->type == EXPR_TYPE_ID) {

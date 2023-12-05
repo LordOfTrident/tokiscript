@@ -1,13 +1,13 @@
 let tokiPath    = "./bin/app"
 let testsFolder = "./tests"
 let tests       = [
-	"100000.toki",  "callback.toki",   "do.toki",     "uwuifier.toki",  "fun.toki",          "len.toki",     "unary.toki",
-	"args.toki",    "comments.toki",   "enum.toki",   "expr.toki",      "hello_world.toki",  "let2.toki",    "print.toki",
-	"arr.toki",     "concat.toki",     "env.toki",    "file.toki",      "idx.toki",          "let.toki",     "slice.toki",
-	"assign.toki",  "const.toki",      "while.toki",  "fmt.toki",       "if.toki",           "matrix.toki",  "system.toki",
-	"bools.toki",   "defer.toki",      "exit.toki",   "for.toki",       "input.toki",        "nil.toki",     "type.toki",
-	"panic.toki",   "expr_error.toki", "error.toki",  "foreach.toki",   "import.toki",       "range.toki",   "methods.toki",
-	"callstack.toki",
+	"100000.toki",    "callback.toki",   "do.toki",     "uwuifier.toki",  "fun.toki",          "len.toki",     "unary.toki",
+	"args.toki",      "comments.toki",   "enum.toki",   "expr.toki",      "hello_world.toki",  "let2.toki",    "print.toki",
+	"arr.toki",       "concat.toki",     "env.toki",    "file.toki",      "idx.toki",          "let.toki",     "slice.toki",
+	"assign.toki",    "const.toki",      "while.toki",  "fmt.toki",       "if.toki",           "matrix.toki",  "system.toki",
+	"bools.toki",     "defer.toki",      "exit.toki",   "for.toki",       "input.toki",        "nil.toki",     "type.toki",
+	"panic.toki",     "expr_error.toki", "error.toki",  "foreach.toki",   "import.toki",       "range.toki",   "methods.toki",
+	"callstack.toki", "index_inc.toki",
 ]
 
 let success = []

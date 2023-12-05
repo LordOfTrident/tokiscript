@@ -1,0 +1,15 @@
+let test = ["hello", 5, ["a", "b"]]
+
+test[0] ++ " world"
+test[1] ++ 5
+test[2] ++ "c"
+
+foreach v in test
+	if v:type() == "array"
+		foreach a in v
+			println("(", a, ")")
+		end
+	else
+		println(v)
+	end
+end
