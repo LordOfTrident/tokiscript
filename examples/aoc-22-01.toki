@@ -10,7 +10,7 @@ freadstr("examples/aoc-22-01-input.txt"):ForeachDelimed("\n", fun(line)
 	end
 end)
 
-println(caloriesList:Sort(fun(a, b) = a < b)[0])
+println(caloriesList:Sort(fun(a, b) = a > b)[0])
 
 
 

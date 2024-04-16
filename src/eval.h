@@ -66,7 +66,7 @@ typedef struct {
 	builtin_func_t func;
 } builtin_t;
 
-#define BUILTINS_COUNT 38
+#define BUILTINS_COUNT 39
 extern builtin_t builtins[BUILTINS_COUNT];
 
 void env_init(  env_t *e, int argc, const char **argv);

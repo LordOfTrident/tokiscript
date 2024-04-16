@@ -30,7 +30,7 @@ rules:
     - constant.bool: "(\\b(true|false|nil)\\b)"
 
     - symbol.operator: "[=\\+\\-\\*/^><%.!:]"
-    - special: "\\b(println|print|len|readnum|readstr|exit|panic|platform|argc|argat|getenv|strtonum|numtostr|type|repeat|rand|fwritestr|fwritebytes|freadstr|freadbytes|system|array|inline|gc|strtobytes|bytestostr|round|floor|ceil|abs|gettime|getyear|getmonth|getday|gethour|getmin|getsec|flush)\\b"
+    - special: "\\b(println|print|len|readnum|readstr|exit|panic|platform|argc|argat|getenv|strtonum|numtostr|type|repeat|rand|srand|fwritestr|fwritebytes|freadstr|freadbytes|system|array|inline|gc|strtobytes|bytestostr|round|floor|ceil|abs|gettime|getyear|getmonth|getday|gethour|getmin|getsec|flush)\\b"
 
     - comment:
         start: "#"
